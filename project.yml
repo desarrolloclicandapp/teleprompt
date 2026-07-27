@@ -1,0 +1,35 @@
+name: Teleprompt
+options:
+  bundleIdPrefix: com.viraltia
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+targets:
+  Teleprompt:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Teleprompt
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.viraltia.teleprompt
+        INFOPLIST_FILE: Teleprompt/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+    scheme:
+      gatherCoverageData: true
+      testTargets:
+        - TelepromptTests
+  TelepromptTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TelepromptTests
+    dependencies:
+      - target: Teleprompt
