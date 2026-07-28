@@ -37,11 +37,8 @@ final class ScriptLibrary: ObservableObject {
     }
 
     func importTextFile(from url: URL) {
-        guard url.startAccessingSecurityScopedResource() else { return }
-        defer { url.stopAccessingSecurityScopedResource() }
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        let title = url.deletingPathExtension().lastPathComponent
-        _ = add(title: title, text: text)
+        guard let document = try? DocumentImporter.read(url: url) else { return }
+        _ = add(title: document.title, text: document.text)
     }
 
     func attachFolderBookmark(_ data: Data, to scriptID: UUID? = nil) {
@@ -71,4 +68,3 @@ final class ScriptLibrary: ObservableObject {
         }
     }
 }
-

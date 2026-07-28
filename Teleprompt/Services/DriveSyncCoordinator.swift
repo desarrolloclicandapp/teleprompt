@@ -8,6 +8,7 @@ final class DriveSyncCoordinator: ObservableObject {
 
     private let folderKey = "teleprompt.drive-folder-id"
     private let tokenKey = "teleprompt.drive-access-token"
+    private let refreshKey = "teleprompt.drive-refresh-token"
 
     var folderID: String? {
         get { UserDefaults.standard.string(forKey: folderKey) }
@@ -22,15 +23,24 @@ final class DriveSyncCoordinator: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
         do {
-            let files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: token)
+            let files: [DriveFile]
+            do {
+                files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: token)
+            } catch DriveError.http(401) {
+                guard let refresh = KeychainStore.get(refreshKey), let clientID = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String else { throw DriveError.http(401) }
+                let renewed = try await GoogleDriveService.shared.refreshAccessToken(refreshToken: refresh, clientID: clientID)
+                KeychainStore.set(renewed, key: tokenKey)
+                files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: renewed)
+            }
             for file in files {
-                let content = try await GoogleDriveService.shared.download(fileID: file.id, accessToken: token)
-                let existing = library.scripts.first { $0.title == file.name.replacingOccurrences(of: ".md", with: "").replacingOccurrences(of: ".txt", with: "") }
+                let data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: token)
+                let document = try DocumentImporter.read(data: data, fileExtension: file.name.split(separator: ".").last.map(String.init) ?? "txt", title: file.name)
+                let existing = library.scripts.first { $0.title == document.title }
                 if var existing {
-                    existing.text = content
+                    existing.text = document.text
                     library.upsert(existing)
                 } else {
-                    _ = library.add(title: file.name, text: content)
+                    _ = library.add(title: document.title, text: document.text)
                 }
             }
             lastSync = .now
@@ -40,4 +50,3 @@ final class DriveSyncCoordinator: ObservableObject {
         }
     }
 }
-

@@ -1,19 +1,23 @@
 # Teleprompt para iOS
 
-Aplicación nativa de teleprompter para iPhone/iPad, pensada para funcionar sin suscripciones y con biblioteca local. El proyecto se genera con [XcodeGen](https://github.com/yonaskolb/XcodeGen) y se compila en Codemagic.
+Aplicacion nativa de teleprompter para iPhone/iPad, sin suscripciones y con biblioteca local. Se genera con XcodeGen y se compila en Codemagic.
 
-## Estado actual
+## MVP implementado
 
 - Biblioteca local persistente de guiones.
+- Busqueda, orden y eliminacion.
 - Editor de texto.
-- Importación de archivos `.txt` y Markdown mediante Archivos.
-- Lector de teleprompter en pantalla completa.
-- Velocidad y tamaño de texto configurables.
+- Importacion de TXT, Markdown, PDF y DOCX.
+- Extraccion de texto de PDF y DOCX.
+- Lector a pantalla completa.
+- Velocidad manual ajustable.
+- Cuenta regresiva de tres segundos.
+- Pausa, reinicio, progreso y posicion de lectura.
 - Espejo horizontal y vertical.
-- Cuenta base preparada para sincronización con una carpeta externa.
-- `codemagic.yaml` para generar el proyecto, firmar y producir el `.ipa`.
-- Núcleo de cámara frontal, grabación local y reconocimiento de voz local.
-- Cliente de Drive API, OAuth PKCE y coordinador de sincronización preparados.
+- Controles con teclado o mando Bluetooth compatible.
+- Conexion OAuth inicial con Google Drive.
+- Boton de sincronizacion manual desde una carpeta de Drive.
+- Camera y voz avanzada quedan fuera del flujo principal del MVP.
 
 ## Generar el proyecto
 
@@ -22,16 +26,13 @@ brew install xcodegen
 xcodegen generate
 ```
 
-Después, Codemagic puede usar el proyecto generado con el workflow incluido. La firma requiere configurar el bundle ID `com.viraltia.teleprompt`, certificados/perfiles de Apple y una conexión de App Store Connect.
+El Bundle ID es `com.viraltia.teleprompt`. Codemagic usa `codemagic.yaml` para generar, firmar y producir el `.ipa`.
 
-## Próximos módulos
+## Google Drive
 
-1. Google Drive API con OAuth, sincronización bidireccional y resolución de conflictos.
-2. Cámara frontal y grabación local.
-3. Seguimiento de voz con `SFSpeechRecognizer` y alineación de palabras.
-4. Controles Bluetooth y captura de teclas multimedia.
-5. Pruebas en dispositivo y refinamiento de desplazamiento de alta fluidez.
+La aplicacion usa `drive.file` y necesita el Client ID de iOS en `Teleprompt/Info.plist`. Para sincronizar manualmente se conecta Google Drive y se indica el ID de la carpeta. La sincronizacion bidireccional, el seguimiento de cambios y la subida de videos no forman parte del MVP.
 
-## Configuración pendiente del usuario
+## Configuracion de Apple
 
-Google Drive ya tiene un cliente OAuth de tipo iOS asociado a `com.viraltia.teleprompt`; el Client ID está configurado en `Teleprompt/Info.plist`. Para la distribución en Codemagic también se debe usar el bundle ID `com.viraltia.teleprompt`.
+La firma requiere certificados/perfiles de Apple o una integracion de App Store Connect en Codemagic. Los archivos `.p8`, `.p12` y `.mobileprovision` estan excluidos por `.gitignore`.
+

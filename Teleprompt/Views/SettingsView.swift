@@ -42,11 +42,11 @@ struct SettingsView: View {
                     Text(error).font(.caption).foregroundStyle(.orange)
                 }
             }
-            Section("Próximamente") {
-                Label("Google Drive API y sincronización bidireccional", systemImage: "arrow.triangle.2.circlepath")
-                Label("Seguimiento de voz local", systemImage: "waveform")
-                Label("Cámara y grabación integrada", systemImage: "video")
-                Label("Controles Bluetooth", systemImage: "keyboard")
+            Section("Alcance del MVP") {
+                Label("TXT, Markdown, PDF y DOCX", systemImage: "doc.text")
+                Label("Sincronización manual desde Drive", systemImage: "arrow.down.circle")
+                Label("Lector offline con velocidad manual", systemImage: "play.rectangle")
+                Label("Cámara y voz avanzada: opcionales", systemImage: "ellipsis.circle")
             }
         }
         .navigationTitle("Configuración")

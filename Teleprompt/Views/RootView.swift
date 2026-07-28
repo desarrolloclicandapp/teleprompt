@@ -1,75 +1,96 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct RootView: View {
     @EnvironmentObject private var library: ScriptLibrary
+    @State private var query = ""
+    @State private var sortNewest = true
     @State private var showingNew = false
     @State private var showingImporter = false
     @State private var selectedScript: Script?
+    @State private var importError: String?
+
+    private var visibleScripts: [Script] {
+        let filtered = library.scripts.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) || $0.text.localizedCaseInsensitiveContains(query) }
+        return filtered.sorted { sortNewest ? $0.updatedAt > $1.updatedAt : $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    ForEach(library.scripts) { script in
-                        Button {
-                            selectedScript = script
-                        } label: {
-                            ScriptRow(script: script)
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) { library.delete(script) } label: {
-                                Label("Eliminar", systemImage: "trash")
-                            }
-                        }
+            Group {
+                if library.scripts.isEmpty {
+                    ContentUnavailableView("No hay guiones", systemImage: "text.book.closed", description: Text("Importa un TXT, Markdown, PDF o DOCX para empezar."))
+                } else if visibleScripts.isEmpty {
+                    ContentUnavailableView.search(text: query)
+                } else {
+                    List {
+                        Section { ForEach(visibleScripts) { script in scriptRow(script) } } header: { Text("\(visibleScripts.count) guiones") }
                     }
-                } header: {
-                    Text("Mis guiones")
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Teleprompt")
+            .searchable(text: $query, prompt: "Buscar guiones")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { showingImporter = true } label: { Image(systemName: "folder.badge.plus") }
+                    Menu {
+                        Button { showingImporter = true } label: { Label("Importar archivos", systemImage: "doc.badge.plus") }
+                        Button { showingNew = true } label: { Label("Crear guion", systemImage: "square.and.pencil") }
+                    } label: { Image(systemName: "plus") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 14) {
+                    HStack(spacing: 12) {
+                        Button { sortNewest.toggle() } label: { Image(systemName: sortNewest ? "arrow.down" : "textformat.abc") }.accessibilityLabel("Cambiar orden")
                         NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
-                        Button { showingNew = true } label: { Image(systemName: "plus") }
                     }
                 }
             }
-            .sheet(item: $selectedScript) { script in
-                ScriptEditorView(script: script)
+            .sheet(item: $selectedScript) { script in ScriptEditorView(script: script) }
+            .sheet(isPresented: $showingNew) { ScriptEditorView(script: library.add()) }
+            .fileImporter(isPresented: $showingImporter, allowedContentTypes: DocumentImporter.supportedTypes, allowsMultipleSelection: true) { result in
+                switch result {
+                case .success(let urls):
+                    urls.forEach { url in
+                        do {
+                            let document = try DocumentImporter.read(url: url)
+                            _ = library.add(title: document.title, text: document.text)
+                        } catch { importError = error.localizedDescription }
+                    }
+                case .failure(let error): importError = error.localizedDescription
+                }
             }
-            .sheet(isPresented: $showingNew) {
-                ScriptEditorView(script: library.add())
+            .alert("No se pudo importar", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+                Button("Aceptar", role: .cancel) { importError = nil }
+            } message: { Text(importError ?? "") }
+        }
+    }
+
+    private func scriptRow(_ script: Script) -> some View {
+        Button { selectedScript = script } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon(for: script.title)).font(.title3).foregroundStyle(.mint)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(script.title).font(.headline).foregroundStyle(.primary)
+                    Text(script.text.replacingOccurrences(of: "\n", with: " ")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(script.updatedAt, style: .date).font(.caption2).foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
             }
-            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.plainText, .text, .sourceCode], allowsMultipleSelection: true) { result in
-                if case .success(let urls) = result { urls.forEach(library.importTextFile) }
-            }
+            .padding(.vertical, 5)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { library.delete(script) } label: { Label("Eliminar", systemImage: "trash") }
+        }
+    }
+
+    private func icon(for title: String) -> String {
+        switch title.split(separator: ".").last?.lowercased() {
+        case "pdf": return "doc.richtext"
+        case "docx": return "doc.text"
+        default: return "text.alignleft"
         }
     }
 }
 
-private struct ScriptRow: View {
-    let script: Script
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "text.alignleft")
-                .font(.title3)
-                .foregroundStyle(.mint)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(script.title).font(.headline)
-                Text(script.text.replacingOccurrences(of: "\n", with: " "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 6)
-    }
-}

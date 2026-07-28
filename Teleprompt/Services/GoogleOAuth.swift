@@ -70,6 +70,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw DriveError.http((response as? HTTPURLResponse)?.statusCode ?? -1) }
             let token = try JSONDecoder().decode(TokenResponse.self, from: data)
             KeychainStore.set(token.accessToken, key: "teleprompt.drive-access-token")
+            if let refreshToken = token.refreshToken { KeychainStore.set(refreshToken, key: "teleprompt.drive-refresh-token") }
             isConnected = true
         } catch { errorMessage = error.localizedDescription }
     }
@@ -90,5 +91,9 @@ extension GoogleOAuth: ASWebAuthenticationPresentationContextProviding {
 
 private struct TokenResponse: Decodable {
     let accessToken: String
-    enum CodingKeys: String, CodingKey { case accessToken = "access_token" }
+    let refreshToken: String?
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+    }
 }

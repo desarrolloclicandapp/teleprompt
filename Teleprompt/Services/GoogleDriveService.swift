@@ -19,7 +19,7 @@ actor GoogleDriveService {
 
     func listScripts(in folderID: String, accessToken: String, pageToken: String? = nil) async throws -> [DriveFile] {
         var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
-        let query = "'\(folderID)' in parents and trashed = false and (mimeType = 'text/plain' or mimeType = 'text/markdown')"
+        let query = "'\(folderID)' in parents and trashed = false and (mimeType = 'text/plain' or mimeType = 'text/markdown' or mimeType = 'application/pdf' or mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')"
         components.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "fields", value: "files(id,name,mimeType,modifiedTime,md5Checksum),nextPageToken"),
@@ -31,12 +31,17 @@ actor GoogleDriveService {
     }
 
     func download(fileID: String, accessToken: String) async throws -> String {
+        let data = try await downloadData(fileID: fileID, accessToken: accessToken)
+        guard let text = String(data: data, encoding: .utf8) else { throw DriveError.invalidText }
+        return text
+    }
+
+    func downloadData(fileID: String, accessToken: String) async throws -> Data {
         var components = URLComponents(url: baseURL.appendingPathComponent("files/\(fileID)"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "alt", value: "media")]
         let (data, response) = try await URLSession.shared.data(for: authorizedRequest(components.url!, accessToken: accessToken))
         try validate(response)
-        guard let text = String(data: data, encoding: .utf8) else { throw DriveError.invalidText }
-        return text
+        return data
     }
 
     func upload(text: String, fileID: String, accessToken: String) async throws {
@@ -47,6 +52,20 @@ actor GoogleDriveService {
         request.httpBody = text.data(using: .utf8)
         let (_, response) = try await URLSession.shared.data(for: request)
         try validate(response)
+    }
+
+    func refreshAccessToken(refreshToken: String, clientID: String) async throws -> String {
+        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let body = ["client_id": clientID, "refresh_token": refreshToken, "grant_type": "refresh_token"]
+            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }
+            .joined(separator: "&")
+        request.httpBody = body.data(using: .utf8)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response)
+        let token = try JSONDecoder().decode(RefreshResponse.self, from: data)
+        return token.accessToken
     }
 
     private func request<T: Decodable>(_ url: URL, accessToken: String) async throws -> T {
@@ -67,6 +86,8 @@ actor GoogleDriveService {
         }
     }
 }
+
+private struct RefreshResponse: Decodable { let accessToken: String; enum CodingKeys: String, CodingKey { case accessToken = "access_token" } }
 
 private struct DriveFilesResponse: Decodable {
     let files: [DriveFile]

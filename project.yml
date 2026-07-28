@@ -8,6 +8,10 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     DEVELOPMENT_TEAM: ""
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    from: 0.9.19
 targets:
   Teleprompt:
     type: application
@@ -21,6 +25,8 @@ targets:
         INFOPLIST_FILE: Teleprompt/Info.plist
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - package: ZIPFoundation
     scheme:
       gatherCoverageData: true
       testTargets:
