@@ -20,6 +20,8 @@
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>GOOGLE_CLIENT_ID</key>
 	<string>907761302167-ql6fmvbli2gcnlgobo02gb3t6raca8bq.apps.googleusercontent.com</string>
 	<key>NSCameraUsageDescription</key>

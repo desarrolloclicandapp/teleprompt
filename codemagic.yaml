@@ -11,6 +11,9 @@ workflows:
       vars:
         XCODE_PROJECT: "Teleprompt.xcodeproj"
         XCODE_SCHEME: "Teleprompt"
+        # Último build publicado en App Store Connect: 1785247605.
+        # BUILD_NUMBER es el contador creciente de este workflow.
+        APP_STORE_BUILD_BASE: "1785247605"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.viraltia.teleprompt
@@ -19,14 +22,16 @@ workflows:
         script: brew install xcodegen
       - name: Generate Xcode project
         script: xcodegen generate
-      - name: Set unique App Store build number
+      - name: Set ordered App Store build number and encryption declaration
         script: |
-          BUILD_NUMBER="${CM_BUILD_NUMBER:-$(date +%s)}"
-          case "$BUILD_NUMBER" in
-            ''|*[!0-9]*) BUILD_NUMBER="$(date +%s)" ;;
+          BUILD_COUNTER="${BUILD_NUMBER:-1}"
+          case "$BUILD_COUNTER" in
+            ''|*[!0-9]*) echo "Invalid Codemagic BUILD_NUMBER: $BUILD_COUNTER"; exit 1 ;;
           esac
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" Teleprompt/Info.plist
-          echo "Using App Store build number: $BUILD_NUMBER"
+          APP_STORE_BUILD_NUMBER=$((APP_STORE_BUILD_BASE + BUILD_COUNTER))
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_STORE_BUILD_NUMBER" Teleprompt/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" Teleprompt/Info.plist
+          echo "Using App Store build number: $APP_STORE_BUILD_NUMBER"
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Build and archive
