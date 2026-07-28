@@ -54,18 +54,25 @@ struct TeleprompterView: View {
 
     var body: some View {
         GeometryReader { canvas in
+            let landscape = canvas.size.width > canvas.size.height
+
             ZStack {
                 Color.black.ignoresSafeArea()
 
                 if showCamera {
-                    cameraPreview(for: canvas.size)
+                    cameraPreview(for: canvas.size, isLandscape: landscape)
                         .transition(.opacity)
                     Color.black.opacity(0.34)
                         .frame(
-                            width: canvas.size.width > canvas.size.height ? canvas.size.width * 0.58 : canvas.size.width,
+                            width: landscape ? canvas.size.width * 0.58 : canvas.size.width,
                             height: canvas.size.height
                         )
-                        .frame(maxWidth: .infinity, alignment: cameraSideIsTrailing ? .trailing : .leading)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: landscape
+                                ? (cameraSideIsTrailing ? .trailing : .leading)
+                                : .center
+                        )
                         .ignoresSafeArea()
                 }
 
@@ -90,18 +97,18 @@ struct TeleprompterView: View {
                 if showControls {
                     controls
                         .frame(
-                            width: isLandscape ? landscapeControlSide : nil,
-                            height: isLandscape ? landscapeControlSide : portraitControlHeight
+                            width: landscape ? landscapeControlSide : nil,
+                            height: landscape ? landscapeControlSide : portraitControlHeight
                         )
                         .frame(
                             maxWidth: .infinity,
                             maxHeight: .infinity,
-                            alignment: landscapeCameraLayout
+                            alignment: (landscape && showCamera)
                                 ? (cameraSideIsTrailing ? .bottomLeading : .bottomTrailing)
                                 : .bottom
                         )
-                        .padding(.leading, isLandscape && cameraSideIsTrailing ? 8 : 0)
-                        .padding(.trailing, isLandscape && !cameraSideIsTrailing ? 8 : 0)
+                        .padding(.leading, landscape && cameraSideIsTrailing ? 8 : 0)
+                        .padding(.trailing, landscape && !cameraSideIsTrailing ? 8 : 0)
                         .padding(.bottom, 4)
                     .zIndex(5)
                 }
@@ -172,8 +179,7 @@ struct TeleprompterView: View {
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
     }
 
-    private func cameraPreview(for size: CGSize) -> some View {
-        let landscape = size.width > size.height
+    private func cameraPreview(for size: CGSize, isLandscape landscape: Bool) -> some View {
         let cameraWidth = landscape ? size.width * 0.58 : size.width
         let alignment: Alignment = landscape
             ? (cameraSideIsTrailing ? .trailing : .leading)
