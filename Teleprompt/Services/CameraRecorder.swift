@@ -53,6 +53,12 @@ final class CameraRecorder: NSObject, ObservableObject {
         }
     }
 
+    func stopSession() {
+        if session.isRunning {
+            session.stopRunning()
+        }
+    }
+
     func saveLastRecordingToPhotos() async {
         guard let url = lastRecordingURL else { return }
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)

@@ -88,7 +88,9 @@ final class GoogleOAuth: NSObject, ObservableObject {
 }
 
 extension GoogleOAuth: ASWebAuthenticationPresentationContextProviding {
-    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { ASPresentationAnchor() }
+    nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        MainActor.assumeIsolated { ASPresentationAnchor() }
+    }
 }
 
 private struct TokenResponse: Decodable {
