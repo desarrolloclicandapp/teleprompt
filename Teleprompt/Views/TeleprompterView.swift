@@ -3,6 +3,8 @@ import SwiftUI
 struct TeleprompterView: View {
     @Environment(\.dismiss) private var dismiss
     let script: Script
+    @StateObject private var recorder = CameraRecorder()
+    @StateObject private var mediaRemote = MediaRemoteController()
     @State private var isPlaying = false
     @State private var speed: Double = 36
     @State private var fontSize: Double = 42
@@ -11,7 +13,7 @@ struct TeleprompterView: View {
     @State private var currentLine = 0
     @State private var countdownValue = 0
     @State private var showControls = true
-    @State private var showRecording = false
+    @State private var showCamera = false
     @State private var showReaderSettings = false
     @State private var accumulator = 0.0
 
@@ -27,18 +29,10 @@ struct TeleprompterView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            RemoteKeyCapture { action in
-                switch action {
-                case .playPause: togglePlayback()
-                case .next: currentLine = min(currentLine + 1, max(0, lines.count - 1))
-                case .previous: currentLine = max(0, currentLine - 1)
-                case .reset: currentLine = 0
-                case .increaseSpeed: speed = min(140, speed + 5)
-                case .decreaseSpeed: speed = max(5, speed - 5)
-                }
-            }
-            .frame(width: 1, height: 1)
-            .opacity(0.01)
+            RemoteKeyCapture(onAction: handleRemoteAction)
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
+
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 18) {
@@ -69,12 +63,55 @@ struct TeleprompterView: View {
                 }
             }
 
+            if showCamera { cameraOverlay }
             if countdownValue > 0 { Text("\(countdownValue)").font(.system(size: 120, weight: .bold, design: .rounded)).foregroundStyle(.mint) }
             if showControls { controls }
         }
         .statusBarHidden(!showControls)
-        .fullScreenCover(isPresented: $showRecording) { RecordingView(script: script) }
-        .sheet(isPresented: $showReaderSettings) { ReaderSettingsView(speed: $speed, fontSize: $fontSize, mirrorHorizontal: $mirrorHorizontal, mirrorVertical: $mirrorVertical) }
+        .sheet(isPresented: $showReaderSettings) { ReaderSettingsView(fontSize: $fontSize, mirrorHorizontal: $mirrorHorizontal, mirrorVertical: $mirrorVertical) }
+        .task(id: showCamera) {
+            if showCamera { await recorder.prepare() }
+        }
+        .onAppear {
+            mediaRemote.onAction = handleRemoteAction
+            mediaRemote.start()
+        }
+        .onDisappear {
+            mediaRemote.stop()
+            recorder.stopSession()
+        }
+    }
+
+    private var cameraOverlay: some View {
+        VStack {
+            HStack {
+                Spacer()
+                ZStack(alignment: .bottomLeading) {
+                    CameraPreview(session: recorder.session)
+                        .frame(width: 154, height: 218)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    HStack(spacing: 5) {
+                        Circle().fill(recorder.isRecording ? .red : .white.opacity(0.5)).frame(width: 8, height: 8)
+                        Text(recorder.isRecording ? "REC" : "Cámara").font(.caption2.weight(.bold))
+                    }
+                    .padding(9)
+                    .foregroundStyle(.white)
+                }
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        if recorder.isRecording { recorder.toggleRecording() }
+                        showCamera = false
+                        recorder.stopSession()
+                    } label: { Image(systemName: "xmark.circle.fill").font(.title2).symbolRenderingMode(.palette).foregroundStyle(.white, .black.opacity(0.6)) }
+                    .padding(8)
+                }
+                .shadow(radius: 12)
+                .padding(.top, 54)
+                .padding(.trailing, 12)
+            }
+            Spacer()
+        }
+        .zIndex(4)
     }
 
     private var controls: some View {
@@ -94,17 +131,33 @@ struct TeleprompterView: View {
             HStack(spacing: 18) {
                 Button { showReaderSettings = true } label: { Image(systemName: "slider.horizontal.3") }
                 Button { currentLine = 0; accumulator = 0 } label: { Image(systemName: "backward.end") }
-                Button { showRecording = true } label: { Image(systemName: "video") }
+                Button { showCamera.toggle() } label: { Image(systemName: showCamera ? "video.fill" : "video") }
+                if showCamera {
+                    Button { recorder.toggleRecording() } label: { Image(systemName: recorder.isRecording ? "stop.circle.fill" : "record.circle") }.foregroundStyle(recorder.isRecording ? .red : .white)
+                }
                 Spacer()
                 Button { togglePlayback() } label: {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill").font(.title2).frame(width: 52, height: 52)
                 }.buttonStyle(.borderedProminent)
             }
+            if recorder.savedToPhotos { Label("Guardado en Fotos", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.mint) }
+            if let message = recorder.authorizationMessage { Text(message).font(.caption).foregroundStyle(.orange).multilineTextAlignment(.center) }
             ProgressView(value: Double(currentLine), total: Double(max(1, lines.count))).tint(.mint)
         }
         .padding()
         .foregroundStyle(.white)
         .background(.black.opacity(0.86))
+    }
+
+    private func handleRemoteAction(_ action: RemoteAction) {
+        switch action {
+        case .playPause: togglePlayback()
+        case .next: currentLine = min(currentLine + 1, max(0, lines.count - 1))
+        case .previous: currentLine = max(0, currentLine - 1)
+        case .reset: currentLine = 0
+        case .increaseSpeed: speed = min(140, speed + 5)
+        case .decreaseSpeed: speed = max(5, speed - 5)
+        }
     }
 
     private func togglePlayback() {
@@ -123,7 +176,6 @@ struct TeleprompterView: View {
 
 private struct ReaderSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Binding var speed: Double
     @Binding var fontSize: Double
     @Binding var mirrorHorizontal: Bool
     @Binding var mirrorVertical: Bool
@@ -131,9 +183,7 @@ private struct ReaderSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Texto") {
-                    HStack { Text("Tamaño"); Slider(value: $fontSize, in: 20...100); Text("\(Int(fontSize))") }
-                }
+                Section("Texto") { HStack { Text("Tamaño"); Slider(value: $fontSize, in: 20...100); Text("\(Int(fontSize))") } }
                 Section("Espejo") {
                     Toggle("Espejo horizontal", isOn: $mirrorHorizontal)
                     Toggle("Espejo vertical", isOn: $mirrorVertical)

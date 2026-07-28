@@ -14,6 +14,8 @@
 	<string>Teleprompt necesita la cámara frontal para grabarte mientras lees.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Teleprompt necesita el micrófono para grabar tus videos y seguir tu voz.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Teleprompt guarda tus grabaciones en la app Fotos.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Teleprompt usa reconocimiento local para avanzar el guion mientras hablas.</string>
 	<key>UILaunchScreen</key>

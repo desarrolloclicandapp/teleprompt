@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Photos
 
 @MainActor
 final class CameraRecorder: NSObject, ObservableObject {
@@ -7,6 +8,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     private let movieOutput = AVCaptureMovieFileOutput()
     @Published private(set) var isRecording = false
     @Published private(set) var lastRecordingURL: URL?
+    @Published private(set) var savedToPhotos = false
     @Published var authorizationMessage: String?
 
     func prepare() async {
@@ -16,7 +18,10 @@ final class CameraRecorder: NSObject, ObservableObject {
             authorizationMessage = "Activa cámara y micrófono en Ajustes para grabar."
             return
         }
-        guard !session.isRunning, session.inputs.isEmpty else { return }
+        if !session.inputs.isEmpty {
+            if !session.isRunning { session.startRunning() }
+            return
+        }
         session.beginConfiguration()
         session.sessionPreset = .high
         defer { session.commitConfiguration() }
@@ -43,6 +48,24 @@ final class CameraRecorder: NSObject, ObservableObject {
             let url = directory.appendingPathComponent("Take-\(Int(Date().timeIntervalSince1970)).mov")
             movieOutput.startRecording(to: url, recordingDelegate: self)
             isRecording = true
+            savedToPhotos = false
+        }
+    }
+
+    func saveLastRecordingToPhotos() async {
+        guard let url = lastRecordingURL else { return }
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            authorizationMessage = "Permite guardar fotos y videos para enviar la grabación a Fotos."
+            return
+        }
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }
+            savedToPhotos = true
+        } catch {
+            authorizationMessage = "No se pudo guardar el video en Fotos: \(error.localizedDescription)"
         }
     }
 }
@@ -51,7 +74,10 @@ extension CameraRecorder: AVCaptureFileOutputRecordingDelegate {
     nonisolated func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
         Task { @MainActor in
             self.isRecording = false
-            if error == nil { self.lastRecordingURL = outputFileURL }
+            if error == nil {
+                self.lastRecordingURL = outputFileURL
+                await self.saveLastRecordingToPhotos()
+            }
         }
     }
 }
