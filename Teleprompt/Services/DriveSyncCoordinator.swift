@@ -24,10 +24,9 @@ final class DriveSyncCoordinator: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
         do {
-            let activeToken: String
+            var activeToken = token
             let files: [DriveFile]
             do {
-                activeToken = token
                 files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: activeToken)
             } catch {
                 guard case DriveError.http(401) = error,

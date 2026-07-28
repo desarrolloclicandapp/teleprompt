@@ -71,7 +71,7 @@ actor GoogleDriveService {
     private func request<T: Decodable>(_ url: URL, accessToken: String) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: authorizedRequest(url, accessToken: accessToken))
         try validate(response)
-        return try JSONDecoder.drive.decode(T.self, from: data)
+        return try driveJSONDecoder.decode(T.self, from: data)
     }
 
     private func authorizedRequest(_ url: URL, accessToken: String) -> URLRequest {
@@ -104,10 +104,8 @@ enum DriveError: LocalizedError {
     }
 }
 
-private extension JSONDecoder {
-    static let drive: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-}
+private let driveJSONDecoder: JSONDecoder = {
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    return decoder
+}()

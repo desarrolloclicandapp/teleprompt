@@ -9,7 +9,9 @@ final class ExternalFolderAccess: ObservableObject {
     func rememberFolder(_ url: URL) {
         guard url.startAccessingSecurityScopedResource() else { return }
         defer { url.stopAccessingSecurityScopedResource() }
-        guard let bookmark = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
+        // iOS already grants a security-scoped URL from the document picker.
+        // Plain bookmark data is the portable option available to the iOS SDK.
+        guard let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
         UserDefaults.standard.set(bookmark, forKey: bookmarkKey)
         folderName = url.lastPathComponent
     }
@@ -17,7 +19,7 @@ final class ExternalFolderAccess: ObservableObject {
     func resolveFolder() -> URL? {
         guard let bookmark = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
         var stale = false
-        guard let url = try? URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        guard let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
         if stale { rememberFolder(url) }
         folderName = url.lastPathComponent
         return url
