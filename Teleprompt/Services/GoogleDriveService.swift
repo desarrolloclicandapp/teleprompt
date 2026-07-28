@@ -6,6 +6,7 @@ struct DriveFile: Identifiable, Codable, Equatable {
     let mimeType: String
     let modifiedTime: Date?
     let md5Checksum: String?
+    let folderPath: String? = nil
 
     var isScript: Bool {
         let lower = name.lowercased()
@@ -34,8 +35,40 @@ actor GoogleDriveService {
         ]
         if let pageToken { components.queryItems?.append(URLQueryItem(name: "pageToken", value: pageToken)) }
         let response: DriveFilesResponse = try await request(components.url!, accessToken: accessToken)
-        return response.files.map {
-            DriveFolder(id: $0.id, name: $0.name, parentID: parentID)
+        return response.files
+    }
+
+    func listScriptsRecursively(
+        in folderID: String,
+        accessToken: String,
+        path: String = ""
+    ) async throws -> [DriveFile] {
+        let directFiles = try await listScripts(in: folderID, accessToken: accessToken)
+            .map {
+                DriveFile(
+                    id: $0.id,
+                    name: $0.name,
+                    mimeType: $0.mimeType,
+                    modifiedTime: $0.modifiedTime,
+                    md5Checksum: $0.md5Checksum,
+                    folderPath: path.isEmpty ? nil : path
+                )
+            }
+
+        let childFolders = try await listFolders(in: folderID, accessToken: accessToken)
+        var files = directFiles
+        for folder in childFolders {
+            let childPath = path.isEmpty ? folder.name : "\(path)/\(folder.name)"
+            files += try await listScriptsRecursively(
+                in: folder.id,
+                accessToken: accessToken,
+                path: childPath
+            )
+        }
+        return files.sorted {
+            ($0.folderPath ?? "").localizedCaseInsensitiveCompare($1.folderPath ?? "") == .orderedAscending
+                || (($0.folderPath ?? "") == ($1.folderPath ?? "")
+                    && $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending)
         }
     }
 

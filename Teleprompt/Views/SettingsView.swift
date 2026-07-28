@@ -112,6 +112,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showDriveFolderPicker) {
             DriveFolderPickerView(drive: drive) { folder in
                 drive.selectFolder(folder)
+                Task { await drive.sync(library: library) }
             }
         }
     }

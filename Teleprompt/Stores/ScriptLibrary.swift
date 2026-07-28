@@ -13,8 +13,18 @@ final class ScriptLibrary: ObservableObject {
         load()
     }
 
-    func add(title: String = "Nuevo guion", text: String = "") -> Script {
-        let script = Script(title: title.isEmpty ? "Nuevo guion" : title, text: text)
+    func add(
+        title: String = "Nuevo guion",
+        text: String = "",
+        sourcePath: String? = nil,
+        sourceID: String? = nil
+    ) -> Script {
+        let script = Script(
+            title: title.isEmpty ? "Nuevo guion" : title,
+            text: text,
+            sourcePath: sourcePath,
+            sourceID: sourceID
+        )
         scripts.insert(script, at: 0)
         save()
         return script

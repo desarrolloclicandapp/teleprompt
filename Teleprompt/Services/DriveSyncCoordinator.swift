@@ -80,7 +80,7 @@ final class DriveSyncCoordinator: ObservableObject {
             var activeToken = token
             let files: [DriveFile]
             do {
-                files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: activeToken)
+                files = try await GoogleDriveService.shared.listScriptsRecursively(in: folderID, accessToken: activeToken)
             } catch {
                 guard case DriveError.http(401) = error,
                       let refresh = KeychainStore.get(refreshKey),
@@ -90,17 +90,31 @@ final class DriveSyncCoordinator: ObservableObject {
                 let renewed = try await GoogleDriveService.shared.refreshAccessToken(refreshToken: refresh, clientID: clientID)
                 KeychainStore.set(renewed, key: tokenKey)
                 activeToken = renewed
-                files = try await GoogleDriveService.shared.listScripts(in: folderID, accessToken: activeToken)
+                files = try await GoogleDriveService.shared.listScriptsRecursively(in: folderID, accessToken: activeToken)
             }
             for file in files {
                 let data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
                 let document = try DocumentImporter.read(data: data, fileExtension: file.name.split(separator: ".").last.map(String.init) ?? "txt", title: file.name)
-                let existing = library.scripts.first { $0.title == document.title }
+                let sourcePath = file.folderPath.map { "Google Drive/\($0)" } ?? "Google Drive"
+                let existing = library.scripts.first { script in
+                    script.sourceID == file.id
+                        || (script.sourceID == nil
+                            && (script.sourcePath == sourcePath || (sourcePath == "Google Drive" && script.sourcePath == nil))
+                            && script.title == document.title)
+                }
                 if var existing {
                     existing.text = document.text
+                    existing.title = document.title
+                    existing.sourcePath = sourcePath
+                    existing.sourceID = file.id
                     library.upsert(existing)
                 } else {
-                    _ = library.add(title: document.title, text: document.text)
+                    _ = library.add(
+                        title: document.title,
+                        text: document.text,
+                        sourcePath: sourcePath,
+                        sourceID: file.id
+                    )
                 }
             }
             lastSync = .now

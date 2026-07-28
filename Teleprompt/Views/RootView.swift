@@ -15,6 +15,16 @@ struct RootView: View {
         return filtered.sorted { sortNewest ? $0.updatedAt > $1.updatedAt : $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    private var scriptGroups: [ScriptGroup] {
+        Dictionary(grouping: visibleScripts, by: { $0.sourcePath ?? "Mis guiones" })
+            .map { ScriptGroup(name: $0.key, scripts: $0.value) }
+            .sorted { lhs, rhs in
+                if lhs.name == "Mis guiones" { return true }
+                if rhs.name == "Mis guiones" { return false }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -24,7 +34,15 @@ struct RootView: View {
                     ContentUnavailableView.search(text: query)
                 } else {
                     List {
-                        Section { ForEach(visibleScripts) { script in scriptRow(script) } } header: { Text("\(visibleScripts.count) guiones") }
+                        ForEach(scriptGroups) { group in
+                            Section {
+                                ForEach(group.scripts) { script in
+                                    scriptRow(script)
+                                }
+                            } header: {
+                                Label("\(group.name) · \(group.scripts.count)", systemImage: "folder.fill")
+                            }
+                        }
                     }
                     .listStyle(.insetGrouped)
                 }
@@ -94,3 +112,8 @@ struct RootView: View {
     }
 }
 
+private struct ScriptGroup: Identifiable {
+    let name: String
+    let scripts: [Script]
+    var id: String { name }
+}
