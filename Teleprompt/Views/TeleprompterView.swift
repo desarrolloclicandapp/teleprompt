@@ -48,10 +48,6 @@ struct TeleprompterView: View {
         min(360, max(280, canvasSize.height - 24))
     }
 
-    private var landscapeCameraLayout: Bool {
-        isLandscape && showCamera
-    }
-
     var body: some View {
         GeometryReader { canvas in
             let landscape = canvas.size.width > canvas.size.height
@@ -60,20 +56,8 @@ struct TeleprompterView: View {
                 Color.black.ignoresSafeArea()
 
                 if showCamera {
-                    cameraPreview(for: canvas.size, isLandscape: landscape)
+                    cameraPreview
                         .transition(.opacity)
-                    Color.black.opacity(0.34)
-                        .frame(
-                            width: landscape ? canvas.size.width * 0.58 : canvas.size.width,
-                            height: canvas.size.height
-                        )
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: landscape
-                                ? (cameraSideIsTrailing ? .trailing : .leading)
-                                : .center
-                        )
-                        .ignoresSafeArea()
                 }
 
                 RemoteKeyCapture(onAction: handleRemoteAction)
@@ -179,14 +163,9 @@ struct TeleprompterView: View {
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
     }
 
-    private func cameraPreview(for size: CGSize, isLandscape landscape: Bool) -> some View {
-        let cameraWidth = landscape ? size.width * 0.58 : size.width
-        let alignment: Alignment = landscape
-            ? (cameraSideIsTrailing ? .trailing : .leading)
-            : .center
+    private var cameraPreview: some View {
         return CameraPreview(session: recorder.session)
-            .frame(width: cameraWidth, height: size.height)
-            .frame(maxWidth: .infinity, alignment: alignment)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
             .ignoresSafeArea()
     }
@@ -436,7 +415,7 @@ struct TeleprompterView: View {
                 let start = resizeStartSize ?? panelSize
                 resizeStartSize = start
 
-                let horizontalLimit = landscapeCameraLayout ? canvasSize.width * 0.58 : canvasSize.width
+                let horizontalLimit = canvasSize.width
                 let maximumWidth = max(180, horizontalLimit - 24)
                 let minimumHeight: CGFloat = isLandscape ? 180 : 220
                 let maximumHeight = max(minimumHeight, canvasSize.height - 24)
@@ -518,10 +497,9 @@ struct TeleprompterView: View {
 
     private func defaultPanelSize(for size: CGSize, isLandscape: Bool) -> CGSize {
         if isLandscape {
-            let cameraRegionWidth = showCamera ? size.width * 0.58 : size.width
             let side = min(
-                max(180, cameraRegionWidth - 24),
-                max(180, min(size.height * 0.82, cameraRegionWidth - 24))
+                max(180, size.width - 24),
+                max(180, min(size.height * 0.82, size.width - 24))
             )
             return CGSize(width: side, height: side)
         }
@@ -533,7 +511,7 @@ struct TeleprompterView: View {
     }
 
     private func limitedPanelSize(_ size: CGSize, for canvas: CGSize, isLandscape: Bool) -> CGSize {
-        let horizontalLimit = isLandscape && showCamera ? canvas.width * 0.58 : canvas.width
+        let horizontalLimit = canvas.width
         let minimumHeight: CGFloat = isLandscape ? 180 : 220
 
         if isLandscape {
@@ -551,7 +529,6 @@ struct TeleprompterView: View {
     private func defaultPanelCenter(for canvas: CGSize, panelSize: CGSize, isLandscape: Bool) -> CGPoint {
         let topInset: CGFloat = showCamera ? 8 : 18
         if isLandscape && showCamera {
-            let cameraWidth = canvas.width * 0.58
             let x = cameraSideIsTrailing
                 ? canvas.width - panelSize.width / 2 - 12
                 : panelSize.width / 2 + 12
@@ -573,19 +550,8 @@ struct TeleprompterView: View {
         let panelHalfWidth = panelSize.width / 2
         let minimumX: CGFloat
         let maximumX: CGFloat
-        if landscapeCameraLayout {
-            let cameraWidth = canvasSize.width * 0.58
-            if cameraSideIsTrailing {
-                minimumX = canvasSize.width - cameraWidth + panelHalfWidth + 8
-                maximumX = max(minimumX, canvasSize.width - panelHalfWidth - 8)
-            } else {
-                minimumX = panelHalfWidth + 8
-                maximumX = max(minimumX, cameraWidth - panelHalfWidth - 8)
-            }
-        } else {
-            minimumX = panelHalfWidth + 8
-            maximumX = max(minimumX, canvasSize.width - panelHalfWidth - 8)
-        }
+        minimumX = panelHalfWidth + 8
+        maximumX = max(minimumX, canvasSize.width - panelHalfWidth - 8)
         let minimumY = panelSize.height / 2 + 8
         let maximumY = max(minimumY, canvasSize.height - panelSize.height / 2 - 8)
         return CGPoint(

@@ -45,12 +45,6 @@ final class CameraRecorder: NSObject, ObservableObject {
         if isRecording {
             movieOutput.stopRecording()
         } else {
-            if let connection = movieOutput.connection(with: .video) {
-                if connection.isVideoMirroringSupported {
-                    connection.automaticallyAdjustsVideoMirroring = false
-                    connection.isVideoMirrored = true
-                }
-            }
             let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let url = directory.appendingPathComponent("Take-\(Int(Date().timeIntervalSince1970)).mov")
             movieOutput.startRecording(to: url, recordingDelegate: self)

@@ -17,12 +17,7 @@ struct CameraPreview: UIViewRepresentable {
     }
 
     private func configure(_ view: PreviewView) {
-        view.previewLayer.videoGravity = .resizeAspect
-        guard let connection = view.previewLayer.connection else { return }
-        if connection.isVideoMirroringSupported {
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.isVideoMirrored = true
-        }
+        view.previewLayer.videoGravity = .resizeAspectFill
     }
 }
 
