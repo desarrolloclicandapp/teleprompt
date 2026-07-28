@@ -24,3 +24,33 @@ workflows:
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+
+  ios-validation:
+    name: Teleprompt iOS validation
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      cocoapods: default
+      vars:
+        XCODE_PROJECT: "Teleprompt.xcodeproj"
+        XCODE_SCHEME: "Teleprompt"
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate Xcode project
+        script: xcodegen generate
+      - name: Resolve Swift packages
+        script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: Build unsigned simulator app
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+    artifacts:
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/Products/**/*.app
+      - /tmp/xcodebuild_logs/*.log
