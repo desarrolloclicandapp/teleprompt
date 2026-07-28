@@ -80,7 +80,6 @@ struct TeleprompterView: View {
                     readerPanel
                         .frame(width: panelSize.width, height: panelSize.height)
                         .position(panelCenter)
-                        .rotationEffect(cameraDisplayRotation(for: currentInterfaceOrientation))
                         .zIndex(1)
                 }
 
