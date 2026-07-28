@@ -46,11 +46,6 @@ final class CameraRecorder: NSObject, ObservableObject {
             movieOutput.stopRecording()
         } else {
             if let connection = movieOutput.connection(with: .video) {
-                if connection.isVideoOrientationSupported {
-                    connection.videoOrientation = .portrait
-                } else if connection.isVideoRotationAngleSupported(90) {
-                    connection.videoRotationAngle = 90
-                }
                 if connection.isVideoMirroringSupported {
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = true

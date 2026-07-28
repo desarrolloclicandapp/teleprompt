@@ -119,6 +119,7 @@ struct TeleprompterView: View {
                 updatePanelLayout(for: canvas.size, safeAreaInsets: canvas.safeAreaInsets, forceReset: true)
             }
         }
+        .ignoresSafeArea()
         .statusBarHidden(!showControls)
         .sheet(isPresented: $showReaderSettings) {
             ReaderSettingsView(
