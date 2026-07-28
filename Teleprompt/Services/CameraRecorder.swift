@@ -2,6 +2,7 @@ import AVFoundation
 import Combine
 import Foundation
 import Photos
+import UIKit
 
 @MainActor
 final class CameraRecorder: NSObject, ObservableObject {
@@ -41,10 +42,23 @@ final class CameraRecorder: NSObject, ObservableObject {
         Task { self.session.startRunning() }
     }
 
-    func toggleRecording() {
+    func toggleRecording(interfaceOrientation: UIInterfaceOrientation = .portrait) {
         if isRecording {
             movieOutput.stopRecording()
         } else {
+            if let connection = movieOutput.connection(with: .video),
+               connection.isVideoOrientationSupported {
+                switch interfaceOrientation {
+                case .landscapeLeft:
+                    connection.videoOrientation = .landscapeLeft
+                case .landscapeRight:
+                    connection.videoOrientation = .landscapeRight
+                case .portraitUpsideDown:
+                    connection.videoOrientation = .portraitUpsideDown
+                default:
+                    connection.videoOrientation = .portrait
+                }
+            }
             let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let url = directory.appendingPathComponent("Take-\(Int(Date().timeIntervalSince1970)).mov")
             movieOutput.startRecording(to: url, recordingDelegate: self)

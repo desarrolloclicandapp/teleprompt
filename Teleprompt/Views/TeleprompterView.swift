@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TeleprompterView: View {
     @Environment(\.dismiss) private var dismiss
@@ -48,6 +49,13 @@ struct TeleprompterView: View {
         min(360, max(280, canvasSize.height - 24))
     }
 
+    private var currentInterfaceOrientation: UIInterfaceOrientation {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first(where: { $0.activationState == .foregroundActive })?
+            .interfaceOrientation ?? .portrait
+    }
+
     var body: some View {
         GeometryReader { canvas in
             let landscape = canvas.size.width > canvas.size.height
@@ -59,7 +67,7 @@ struct TeleprompterView: View {
                     cameraPreview(
                         for: canvas.size,
                         isLandscape: landscape,
-                        cameraIsTrailing: cameraSideIsTrailing
+                        interfaceOrientation: currentInterfaceOrientation
                     )
                         .transition(.opacity)
                 }
@@ -170,11 +178,17 @@ struct TeleprompterView: View {
     private func cameraPreview(
         for size: CGSize,
         isLandscape: Bool,
-        cameraIsTrailing: Bool
+        interfaceOrientation: UIInterfaceOrientation
     ) -> some View {
-        let rotation: Angle = isLandscape
-            ? .degrees(cameraIsTrailing ? -90 : 90)
-            : .zero
+        let rotation: Angle
+        switch interfaceOrientation {
+        case .landscapeLeft:
+            rotation = .degrees(90)
+        case .landscapeRight:
+            rotation = .degrees(-90)
+        default:
+            rotation = .zero
+        }
         let rotatedFrame = isLandscape
             ? CGSize(width: size.height, height: size.width)
             : size
@@ -319,7 +333,9 @@ struct TeleprompterView: View {
                 .accessibilityLabel(showCamera ? "Apagar cámara" : "Encender cámara")
 
                 if showCamera {
-                    Button { recorder.toggleRecording() } label: {
+                    Button {
+                        recorder.toggleRecording(interfaceOrientation: currentInterfaceOrientation)
+                    } label: {
                         Image(systemName: recorder.isRecording ? "stop.fill" : "record.circle.fill")
                             .font(.title3)
                             .frame(width: 42, height: 42)
@@ -505,7 +521,12 @@ struct TeleprompterView: View {
 
         if forceReset || panelSize == .zero || orientationChanged || sideChanged {
             panelSize = defaultPanelSize(for: size, isLandscape: landscape)
-            panelCenter = defaultPanelCenter(for: size, panelSize: panelSize, isLandscape: landscape)
+            panelCenter = defaultPanelCenter(
+                for: size,
+                panelSize: panelSize,
+                isLandscape: landscape,
+                safeAreaInsets: safeAreaInsets
+            )
         } else {
             panelSize = limitedPanelSize(panelSize, for: size, isLandscape: landscape)
             panelCenter = boundedPanelCenter(panelCenter, panelSize: panelSize, canvasSize: size)
@@ -543,8 +564,15 @@ struct TeleprompterView: View {
         )
     }
 
-    private func defaultPanelCenter(for canvas: CGSize, panelSize: CGSize, isLandscape: Bool) -> CGPoint {
-        let topInset: CGFloat = showCamera ? 8 : 18
+    private func defaultPanelCenter(
+        for canvas: CGSize,
+        panelSize: CGSize,
+        isLandscape: Bool,
+        safeAreaInsets: EdgeInsets
+    ) -> CGPoint {
+        let topInset: CGFloat = showCamera
+            ? max(12, safeAreaInsets.top + 8)
+            : 18
         if isLandscape && showCamera {
             let x = cameraSideIsTrailing
                 ? canvas.width - panelSize.width / 2 - 12
