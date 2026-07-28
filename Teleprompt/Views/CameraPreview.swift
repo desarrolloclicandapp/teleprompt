@@ -19,7 +19,9 @@ struct CameraPreview: UIViewRepresentable {
     private func configure(_ view: PreviewView) {
         view.previewLayer.videoGravity = .resizeAspectFill
         guard let connection = view.previewLayer.connection else { return }
-        if connection.isVideoOrientationSupported {
+        if connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        } else if connection.isVideoOrientationSupported {
             connection.videoOrientation = .portrait
         }
         if connection.isVideoMirroringSupported {
