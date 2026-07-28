@@ -7,6 +7,7 @@ import Photos
 final class CameraRecorder: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     @Published private(set) var isRecording = false
     @Published private(set) var lastRecordingURL: URL?
     @Published private(set) var savedToPhotos = false
@@ -31,6 +32,9 @@ final class CameraRecorder: NSObject, ObservableObject {
               let videoInput = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(videoInput) else { return }
         session.addInput(videoInput)
+        if #available(iOS 17.0, *) {
+            rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
+        }
 
         if let audio = AVCaptureDevice.default(for: .audio),
            let audioInput = try? AVCaptureDeviceInput(device: audio),
@@ -46,6 +50,7 @@ final class CameraRecorder: NSObject, ObservableObject {
             movieOutput.stopRecording()
         } else {
             if let connection = movieOutput.connection(with: .video) {
+                updateVideoOrientation(connection)
                 if connection.isVideoMirroringSupported {
                     connection.automaticallyAdjustsVideoMirroring = false
                     connection.isVideoMirrored = true
@@ -79,6 +84,14 @@ final class CameraRecorder: NSObject, ObservableObject {
             savedToPhotos = true
         } catch {
             authorizationMessage = "No se pudo guardar el video en Fotos: \(error.localizedDescription)"
+        }
+    }
+
+    private func updateVideoOrientation(_ connection: AVCaptureConnection) {
+        if #available(iOS 17.0, *),
+           let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelCapture,
+           connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
         }
     }
 }
