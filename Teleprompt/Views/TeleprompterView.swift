@@ -56,7 +56,11 @@ struct TeleprompterView: View {
                 Color.black.ignoresSafeArea()
 
                 if showCamera {
-                    cameraPreview
+                    cameraPreview(
+                        for: canvas.size,
+                        isLandscape: landscape,
+                        cameraIsTrailing: cameraSideIsTrailing
+                    )
                         .transition(.opacity)
                 }
 
@@ -163,9 +167,22 @@ struct TeleprompterView: View {
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
     }
 
-    private var cameraPreview: some View {
+    private func cameraPreview(
+        for size: CGSize,
+        isLandscape: Bool,
+        cameraIsTrailing: Bool
+    ) -> some View {
+        let rotation: Angle = isLandscape
+            ? .degrees(cameraIsTrailing ? -90 : 90)
+            : .zero
+        let rotatedFrame = isLandscape
+            ? CGSize(width: size.height, height: size.width)
+            : size
+
         return CameraPreview(session: recorder.session)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(width: rotatedFrame.width, height: rotatedFrame.height)
+            .rotationEffect(rotation)
+            .frame(width: size.width, height: size.height)
             .clipped()
             .ignoresSafeArea()
     }
