@@ -57,6 +57,7 @@ struct TeleprompterView: View {
                     .scaleEffect(x: mirrorHorizontal ? -1 : 1, y: mirrorVertical ? -1 : 1)
                 }
                 .overlay(alignment: .center) { Rectangle().fill(.mint.opacity(0.6)).frame(height: 2).allowsHitTesting(false) }
+                .onTapGesture { showControls = true }
                 .onReceive(Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()) { _ in
                     guard isPlaying, countdownValue == 0, currentLine < lines.count - 1 else { return }
                     accumulator += speed / 100.0 * 0.05
@@ -72,7 +73,6 @@ struct TeleprompterView: View {
             if showControls { controls }
         }
         .statusBarHidden(!showControls)
-        .onTapGesture { showControls.toggle() }
         .fullScreenCover(isPresented: $showRecording) { RecordingView(script: script) }
         .sheet(isPresented: $showReaderSettings) { ReaderSettingsView(speed: $speed, fontSize: $fontSize, mirrorHorizontal: $mirrorHorizontal, mirrorVertical: $mirrorVertical) }
     }

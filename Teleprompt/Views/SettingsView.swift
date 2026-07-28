@@ -44,7 +44,7 @@ struct SettingsView: View {
             }
             Section("Alcance del MVP") {
                 Label("TXT, Markdown, PDF y DOCX", systemImage: "doc.text")
-                Label("Sincronización manual desde Drive", systemImage: "arrow.down.circle")
+                Label("Descarga manual desde Drive", systemImage: "arrow.down.circle")
                 Label("Lector offline con velocidad manual", systemImage: "play.rectangle")
                 Label("Cámara y voz avanzada: opcionales", systemImage: "ellipsis.circle")
             }

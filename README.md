@@ -30,9 +30,8 @@ El Bundle ID es `com.viraltia.teleprompt`. Codemagic usa `codemagic.yaml` para g
 
 ## Google Drive
 
-La aplicacion usa `drive.file` y necesita el Client ID de iOS en `Teleprompt/Info.plist`. Para sincronizar manualmente se conecta Google Drive y se indica el ID de la carpeta. La sincronizacion bidireccional, el seguimiento de cambios y la subida de videos no forman parte del MVP.
+La aplicacion usa `drive.readonly` y necesita el Client ID de iOS en `Teleprompt/Info.plist`. Para descargar manualmente se conecta Google Drive y se indica el ID de la carpeta. La sincronizacion bidireccional, el seguimiento de cambios y la subida de videos no forman parte del MVP.
 
 ## Configuracion de Apple
 
 La firma requiere certificados/perfiles de Apple o una integracion de App Store Connect en Codemagic. Los archivos `.p8`, `.p12` y `.mobileprovision` estan excluidos por `.gitignore`.
-

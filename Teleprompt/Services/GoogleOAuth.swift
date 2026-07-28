@@ -29,7 +29,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "redirect_uri", value: redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: "https://www.googleapis.com/auth/drive.file"),
+            URLQueryItem(name: "scope", value: "https://www.googleapis.com/auth/drive.readonly"),
             URLQueryItem(name: "access_type", value: "offline"),
             URLQueryItem(name: "prompt", value: "consent"),
             URLQueryItem(name: "code_challenge", value: challenge),
@@ -51,6 +51,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
 
     func disconnect() {
         KeychainStore.remove("teleprompt.drive-access-token")
+        KeychainStore.remove("teleprompt.drive-refresh-token")
         isConnected = false
     }
 
