@@ -9,6 +9,8 @@ final class DriveSyncCoordinator: ObservableObject {
 
     private let folderKey = "teleprompt.drive-folder-id"
     private let folderNameKey = "teleprompt.drive-folder-name"
+    private let folderParentKey = "teleprompt.drive-folder-parent-id"
+    private let folderParentNameKey = "teleprompt.drive-folder-parent-name"
     private let tokenKey = "teleprompt.drive-access-token"
     private let refreshKey = "teleprompt.drive-refresh-token"
 
@@ -22,15 +24,29 @@ final class DriveSyncCoordinator: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: folderNameKey) }
     }
 
+    var folderParentID: String? {
+        get { UserDefaults.standard.string(forKey: folderParentKey) }
+        set { UserDefaults.standard.set(newValue, forKey: folderParentKey) }
+    }
+
+    var folderParentName: String? {
+        get { UserDefaults.standard.string(forKey: folderParentNameKey) }
+        set { UserDefaults.standard.set(newValue, forKey: folderParentNameKey) }
+    }
+
     func selectFolder(_ folder: DriveFolder) {
         folderID = folder.id
         folderName = folder.name
+        folderParentID = folder.parentID
+        folderParentName = folder.parentName
         message = "Carpeta seleccionada: \(folder.name)."
     }
 
     func clearSelectedFolder() {
         folderID = nil
         folderName = nil
+        folderParentID = nil
+        folderParentName = nil
     }
 
     func listFolders(in parentID: String = "root") async throws -> [DriveFolder] {

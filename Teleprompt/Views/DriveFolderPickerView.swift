@@ -77,9 +77,23 @@ struct DriveFolderPickerView: View {
                 }
             }
             .task {
-                await loadFolders()
+                await openInitialLocation()
             }
         }
+    }
+
+    private func openInitialLocation() async {
+        if let parentID = drive.folderParentID, parentID != "root" {
+            path = [
+                DriveFolder(
+                    id: parentID,
+                    name: drive.folderParentName ?? "Carpeta actual",
+                    parentID: nil,
+                    parentName: nil
+                )
+            ]
+        }
+        await loadFolders()
     }
 
     private func loadFolders() async {
@@ -88,7 +102,16 @@ struct DriveFolderPickerView: View {
         defer { isLoading = false }
 
         do {
-            folders = try await drive.listFolders(in: currentFolder.id)
+            let parentFolder = currentFolder
+            let loadedFolders = try await drive.listFolders(in: parentFolder.id)
+            folders = loadedFolders.map {
+                DriveFolder(
+                    id: $0.id,
+                    name: $0.name,
+                    parentID: parentFolder.id,
+                    parentName: parentFolder.name
+                )
+            }
         } catch {
             folders = []
             errorMessage = error.localizedDescription

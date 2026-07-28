@@ -16,6 +16,8 @@ struct DriveFile: Identifiable, Codable, Equatable {
 struct DriveFolder: Identifiable, Codable, Equatable {
     let id: String
     let name: String
+    let parentID: String? = nil
+    let parentName: String? = nil
 }
 
 actor GoogleDriveService {
@@ -32,7 +34,9 @@ actor GoogleDriveService {
         ]
         if let pageToken { components.queryItems?.append(URLQueryItem(name: "pageToken", value: pageToken)) }
         let response: DriveFilesResponse = try await request(components.url!, accessToken: accessToken)
-        return response.files
+        return response.files.map {
+            DriveFolder(id: $0.id, name: $0.name, parentID: parentID)
+        }
     }
 
     func listFolders(in parentID: String, accessToken: String) async throws -> [DriveFolder] {
