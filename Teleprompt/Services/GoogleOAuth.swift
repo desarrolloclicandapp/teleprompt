@@ -2,6 +2,7 @@ import AuthenticationServices
 import Combine
 import CryptoKit
 import Foundation
+import UIKit
 
 @MainActor
 final class GoogleOAuth: NSObject, ObservableObject {
@@ -10,17 +11,29 @@ final class GoogleOAuth: NSObject, ObservableObject {
     private var session: ASWebAuthenticationSession?
     private var verifier = ""
 
+    override init() {
+        super.init()
+        isConnected = KeychainStore.get("teleprompt.drive-access-token") != nil
+    }
+
     private var clientID: String {
         Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String ?? ""
     }
 
+    private var callbackScheme: String {
+        let suffix = ".apps.googleusercontent.com"
+        guard clientID.hasSuffix(suffix) else { return "" }
+        return "com.googleusercontent.apps.\(clientID.dropLast(suffix.count))"
+    }
+
     private var redirectURI: String {
-        "com.googleusercontent.apps.907761302167-ql6fmvbli2gcnlgobo02gb3t6raca8bq:/oauthredirect"
+        "\(callbackScheme):/oauthredirect"
     }
 
     func connect() {
-        guard !clientID.isEmpty, !clientID.contains("REPLACE") else {
-            errorMessage = "Falta configurar GOOGLE_CLIENT_ID en Codemagic y en Info.plist."
+        errorMessage = nil
+        guard !clientID.isEmpty, !clientID.contains("REPLACE"), !callbackScheme.isEmpty else {
+            errorMessage = "El Client ID de Google no está configurado correctamente."
             return
         }
         verifier = Self.randomString(length: 64)
@@ -36,10 +49,23 @@ final class GoogleOAuth: NSObject, ObservableObject {
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
-        session = ASWebAuthenticationSession(url: components.url!, callbackURLScheme: "com.googleusercontent.apps.907761302167-ql6fmvbli2gcnlgobo02gb3t6raca8bq") { [weak self] callbackURL, error in
+        session = ASWebAuthenticationSession(url: components.url!, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
             guard let self else { return }
-            if let error { self.errorMessage = error.localizedDescription; return }
-            guard let callbackURL, let code = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
+            guard let callbackURL else {
+                self.errorMessage = error.map { "No se pudo completar Google Drive: \($0.localizedDescription)" } ?? "Google no devolvió una respuesta."
+                return
+            }
+            let queryItems = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            if let authorizationError = queryItems.first(where: { $0.name == "error" })?.value {
+                let description = queryItems.first(where: { $0.name == "error_description" })?.value
+                if authorizationError == "access_denied" {
+                    self.errorMessage = "Google bloqueó el acceso. En Google Cloud agrega tu cuenta en OAuth consent screen > Test users o publica el consentimiento."
+                } else {
+                    self.errorMessage = description.map { "Google rechazó la autorización: \($0)" } ?? "Google rechazó la autorización (\(authorizationError))."
+                }
+                return
+            }
+            guard let code = queryItems.first(where: { $0.name == "code" })?.value else {
                 self.errorMessage = "Google no devolvió un código de autorización."
                 return
             }
@@ -54,6 +80,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
         KeychainStore.remove("teleprompt.drive-access-token")
         KeychainStore.remove("teleprompt.drive-refresh-token")
         isConnected = false
+        errorMessage = nil
     }
 
     private func exchange(code: String) async {
@@ -89,7 +116,12 @@ final class GoogleOAuth: NSObject, ObservableObject {
 
 extension GoogleOAuth: ASWebAuthenticationPresentationContextProviding {
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        MainActor.assumeIsolated { ASPresentationAnchor() }
+        MainActor.assumeIsolated {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            return scenes
+                .flatMap { $0.windows }
+                .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
+        }
     }
 }
 

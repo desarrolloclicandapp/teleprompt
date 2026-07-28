@@ -18,6 +18,10 @@ struct TeleprompterView: View {
     @State private var showControls = true
     @State private var showCamera = false
     @State private var showReaderSettings = false
+    @State private var controlsOffset: CGFloat = 0
+
+    private let minimumSpeed = 30.0
+    private let maximumSpeed = 600.0
 
     private var maxScrollOffset: CGFloat {
         max(0, contentHeight - viewportHeight)
@@ -52,7 +56,17 @@ struct TeleprompterView: View {
                     .foregroundStyle(.mint)
                     .shadow(color: .black, radius: 14)
             }
-            if showControls { controls }
+            if showControls {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    controls
+                        .offset(y: controlsOffset)
+                        .contentShape(Rectangle())
+                        .gesture(controlsDragGesture)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .safeAreaPadding(.bottom, 4)
+            }
         }
         .statusBarHidden(!showControls)
         .sheet(isPresented: $showReaderSettings) {
@@ -163,6 +177,12 @@ struct TeleprompterView: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
+            Capsule()
+                .fill(.white.opacity(0.42))
+                .frame(width: 42, height: 5)
+                .padding(.top, 2)
+                .accessibilityLabel("Panel de controles. Arrastra para moverlo")
+
             HStack(spacing: 14) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
@@ -199,9 +219,19 @@ struct TeleprompterView: View {
             HStack(spacing: 10) {
                 Image(systemName: "tortoise.fill")
                     .foregroundStyle(.secondary)
-                Slider(value: $speed, in: 30...240, step: 1)
+                Slider(value: $speed, in: minimumSpeed...maximumSpeed, step: 1)
                     .tint(.mint)
                 Image(systemName: "hare.fill")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Text("Velocidad")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("30–600 ppm")
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
@@ -260,6 +290,13 @@ struct TeleprompterView: View {
         .background(.black.opacity(0.9))
     }
 
+    private var controlsDragGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                controlsOffset = min(260, max(-260, value.translation.height))
+            }
+    }
+
     private func advanceScroll() {
         guard isPlaying, countdownValue == 0, maxScrollOffset > 0 else { return }
         let pointsPerSecond = speed * 0.12
@@ -278,8 +315,8 @@ struct TeleprompterView: View {
         case .previous:
             scrollOffset = max(0, scrollOffset - max(180, viewportHeight * 0.38))
         case .reset: resetReader()
-        case .increaseSpeed: speed = min(240, speed + 5)
-        case .decreaseSpeed: speed = max(30, speed - 5)
+        case .increaseSpeed: speed = min(maximumSpeed, speed + 5)
+        case .decreaseSpeed: speed = max(minimumSpeed, speed - 5)
         }
     }
 

@@ -98,6 +98,8 @@ enum DriveError: LocalizedError {
     case invalidText
     var errorDescription: String? {
         switch self {
+        case .http(401): return "La sesión de Google Drive expiró. Vuelve a conectar la cuenta."
+        case .http(403): return "Google Drive denegó el acceso (403). Verifica que tu cuenta esté en OAuth consent screen > Test users y vuelve a conectar."
         case .http(let code): return "Google Drive respondió con el código \(code)."
         case .invalidText: return "El archivo no contiene texto UTF-8 válido."
         }
