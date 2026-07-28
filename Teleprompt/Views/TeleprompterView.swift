@@ -80,6 +80,7 @@ struct TeleprompterView: View {
                     readerPanel
                         .frame(width: panelSize.width, height: panelSize.height)
                         .position(panelCenter)
+                        .rotationEffect(cameraDisplayRotation(for: currentInterfaceOrientation))
                         .zIndex(1)
                 }
 
@@ -180,15 +181,7 @@ struct TeleprompterView: View {
         isLandscape: Bool,
         interfaceOrientation: UIInterfaceOrientation
     ) -> some View {
-        let rotation: Angle
-        switch interfaceOrientation {
-        case .landscapeLeft:
-            rotation = .degrees(90)
-        case .landscapeRight:
-            rotation = .degrees(-90)
-        default:
-            rotation = .zero
-        }
+        let rotation = cameraDisplayRotation(for: interfaceOrientation)
         let rotatedFrame = isLandscape
             ? CGSize(width: size.height, height: size.width)
             : size
@@ -199,6 +192,17 @@ struct TeleprompterView: View {
             .frame(width: size.width, height: size.height)
             .clipped()
             .ignoresSafeArea()
+    }
+
+    private func cameraDisplayRotation(for interfaceOrientation: UIInterfaceOrientation) -> Angle {
+        switch interfaceOrientation {
+        case .landscapeLeft:
+            return .degrees(90)
+        case .landscapeRight:
+            return .degrees(-90)
+        default:
+            return .zero
+        }
     }
 
     private var panelMoveHandle: some View {
