@@ -19,6 +19,14 @@ workflows:
         script: brew install xcodegen
       - name: Generate Xcode project
         script: xcodegen generate
+      - name: Set unique App Store build number
+        script: |
+          BUILD_NUMBER="${CM_BUILD_NUMBER:-$(date +%s)}"
+          case "$BUILD_NUMBER" in
+            ''|*[!0-9]*) BUILD_NUMBER="$(date +%s)" ;;
+          esac
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" Teleprompt/Info.plist
+          echo "Using App Store build number: $BUILD_NUMBER"
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Build and archive
