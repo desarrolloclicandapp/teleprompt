@@ -18,8 +18,6 @@ struct TeleprompterView: View {
     @State private var showControls = true
     @State private var showCamera = false
     @State private var showReaderSettings = false
-    @State private var controlsOffset: CGFloat = 0
-    @State private var controlsDragStartOffset: CGFloat?
     @State private var panelSize: CGSize = .zero
     @State private var panelCenter: CGPoint = .zero
     @State private var canvasSize: CGSize = .zero
@@ -30,6 +28,7 @@ struct TeleprompterView: View {
 
     private let minimumSpeed = 30.0
     private let maximumSpeed = 600.0
+    private let portraitControlHeight: CGFloat = 228
 
     private var maxScrollOffset: CGFloat {
         max(0, contentHeight - viewportHeight)
@@ -42,6 +41,10 @@ struct TeleprompterView: View {
 
     private var isLandscape: Bool {
         canvasSize.width > canvasSize.height
+    }
+
+    private var landscapeControlSide: CGFloat {
+        min(360, max(280, canvasSize.height - 24))
     }
 
     var body: some View {
@@ -80,13 +83,18 @@ struct TeleprompterView: View {
                         .zIndex(4)
                 }
                 if showControls {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        controls
-                            .offset(y: controlsOffset)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .safeAreaPadding(.bottom, 4)
+                    controls
+                        .frame(
+                            width: isLandscape ? landscapeControlSide : nil,
+                            height: isLandscape ? landscapeControlSide : portraitControlHeight
+                        )
+                        .frame(
+                            maxWidth: .infinity,
+                            maxHeight: .infinity,
+                            alignment: isLandscape ? .bottomLeading : .bottom
+                        )
+                        .padding(.leading, isLandscape ? 8 : 0)
+                        .padding(.bottom, 4)
                     .zIndex(5)
                 }
             }
@@ -153,10 +161,12 @@ struct TeleprompterView: View {
     }
 
     private func cameraPreview(for size: CGSize) -> some View {
-        let cameraWidth = size.width > size.height ? size.width * 0.58 : size.width
+        let landscape = size.width > size.height
+        let cameraWidth = landscape ? size.width * 0.58 : size.width
         return CameraPreview(session: recorder.session)
             .frame(width: cameraWidth, height: size.height)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity, alignment: landscape ? .trailing : .center)
+            .clipped()
             .ignoresSafeArea()
     }
 
@@ -178,11 +188,9 @@ struct TeleprompterView: View {
     }
 
     private var resizeHandle: some View {
-        Image(systemName: "arrow.up.left.and.arrow.down.right")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white.opacity(0.9))
-            .frame(width: 42, height: 42)
-            .background(.black.opacity(0.55), in: Circle())
+        Circle()
+            .fill(.white.opacity(0.35))
+            .frame(width: 10, height: 10)
             .padding(8)
             .contentShape(Rectangle())
             .gesture(resizeGesture(resizeWidth: true, resizeHeight: true))
@@ -190,11 +198,9 @@ struct TeleprompterView: View {
     }
 
     private var widthResizeHandle: some View {
-        Image(systemName: "arrow.left.and.right")
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(.white.opacity(0.9))
-            .frame(width: 30, height: 58)
-            .background(.black.opacity(0.55), in: Capsule())
+        Capsule()
+            .fill(.white.opacity(0.3))
+            .frame(width: 18, height: 4)
             .padding(.trailing, 6)
             .contentShape(Rectangle())
             .gesture(resizeGesture(resizeWidth: true, resizeHeight: false))
@@ -202,11 +208,9 @@ struct TeleprompterView: View {
     }
 
     private var heightResizeHandle: some View {
-        Image(systemName: "arrow.up.and.down")
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(.white.opacity(0.9))
-            .frame(width: 58, height: 30)
-            .background(.black.opacity(0.55), in: Capsule())
+        Capsule()
+            .fill(.white.opacity(0.3))
+            .frame(width: 4, height: 18)
             .padding(.bottom, 6)
             .contentShape(Rectangle())
             .gesture(resizeGesture(resizeWidth: false, resizeHeight: true))
@@ -265,19 +269,17 @@ struct TeleprompterView: View {
     }
 
     private var controls: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Capsule()
-                .fill(.white.opacity(0.42))
+                .fill(.white.opacity(0.32))
                 .frame(width: 52, height: 6)
-                .frame(height: 28)
-                .contentShape(Rectangle())
-                .gesture(controlsDragGesture)
-                .accessibilityLabel("Panel de controles. Arrastra para moverlo")
+                .frame(height: 24)
+                .accessibilityLabel("Panel de controles fijo")
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
@@ -285,7 +287,7 @@ struct TeleprompterView: View {
 
                 Button { resetReader() } label: {
                     Image(systemName: "backward.end.fill")
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
@@ -293,7 +295,7 @@ struct TeleprompterView: View {
 
                 Button { toggleCamera() } label: {
                     Image(systemName: showCamera ? "video.fill" : "video")
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
@@ -303,7 +305,7 @@ struct TeleprompterView: View {
                     Button { recorder.toggleRecording() } label: {
                         Image(systemName: recorder.isRecording ? "stop.fill" : "record.circle.fill")
                             .font(.title3)
-                            .frame(width: 46, height: 46)
+                            .frame(width: 42, height: 42)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderedProminent)
@@ -312,10 +314,12 @@ struct TeleprompterView: View {
                 }
 
                 Spacer(minLength: 0)
+            }
 
+            HStack(spacing: 8) {
                 Button { showReaderSettings = true } label: {
                     Image(systemName: "textformat.size")
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
@@ -323,14 +327,26 @@ struct TeleprompterView: View {
 
                 Button { showControls = false } label: {
                     Image(systemName: "eye.slash")
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Ocultar controles")
+
+                Spacer(minLength: 0)
+
+                Button { togglePlayback() } label: {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.title3.weight(.bold))
+                        .frame(width: 46, height: 46)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.mint)
+                .accessibilityLabel(isPlaying ? "Pausar lectura" : "Iniciar lectura")
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "tortoise.fill")
                     .foregroundStyle(.secondary)
 
@@ -347,16 +363,6 @@ struct TeleprompterView: View {
                     .foregroundStyle(.white.opacity(0.86))
                     .frame(minWidth: 34, alignment: .trailing)
                     .accessibilityLabel("\(Int(speed)) palabras por minuto")
-
-                Button { togglePlayback() } label: {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title3.weight(.bold))
-                        .frame(width: 48, height: 48)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.mint)
-                .accessibilityLabel(isPlaying ? "Pausar lectura" : "Iniciar lectura")
             }
 
             ProgressView(value: progress)
@@ -364,33 +370,24 @@ struct TeleprompterView: View {
 
             if recorder.savedToPhotos {
                 Label("Video guardado en Fotos", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.mint)
+                    .lineLimit(1)
             }
             if let message = recorder.authorizationMessage {
                 Text(message)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
+                    .lineLimit(1)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
         .foregroundStyle(.white)
         .background(.black.opacity(0.9))
-    }
-
-    private var controlsDragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                let start = controlsDragStartOffset ?? controlsOffset
-                controlsDragStartOffset = start
-                controlsOffset = min(260, max(-260, start + value.translation.height))
-            }
-            .onEnded { _ in
-                controlsDragStartOffset = nil
-            }
+        .clipped()
     }
 
     private var panelDragGesture: some Gesture {
@@ -523,7 +520,7 @@ struct TeleprompterView: View {
     }
 
     private func defaultPanelCenter(for canvas: CGSize, panelSize: CGSize, isLandscape: Bool) -> CGPoint {
-        let topInset: CGFloat = 18
+        let topInset: CGFloat = showCamera ? 8 : 18
         if isLandscape {
             let nonCameraWidth = canvas.width * 0.42
             return boundedPanelCenter(

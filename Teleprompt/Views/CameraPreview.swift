@@ -7,15 +7,26 @@ struct CameraPreview: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
         view.previewLayer.session = session
-        view.previewLayer.videoGravity = .resizeAspectFill
-        if let connection = view.previewLayer.connection, connection.isVideoMirroringSupported {
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.isVideoMirrored = true
-        }
+        configure(view)
         return view
     }
 
-    func updateUIView(_ uiView: PreviewView, context: Context) {}
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        uiView.previewLayer.session = session
+        configure(uiView)
+    }
+
+    private func configure(_ view: PreviewView) {
+        view.previewLayer.videoGravity = .resizeAspectFill
+        guard let connection = view.previewLayer.connection else { return }
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
+        if connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = true
+        }
+    }
 }
 
 final class PreviewView: UIView {
