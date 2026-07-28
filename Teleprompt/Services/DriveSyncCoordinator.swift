@@ -8,6 +8,7 @@ final class DriveSyncCoordinator: ObservableObject {
     @Published var message: String?
 
     private let folderKey = "teleprompt.drive-folder-id"
+    private let folderNameKey = "teleprompt.drive-folder-name"
     private let tokenKey = "teleprompt.drive-access-token"
     private let refreshKey = "teleprompt.drive-refresh-token"
 
@@ -16,8 +17,44 @@ final class DriveSyncCoordinator: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: folderKey) }
     }
 
+    var folderName: String? {
+        get { UserDefaults.standard.string(forKey: folderNameKey) }
+        set { UserDefaults.standard.set(newValue, forKey: folderNameKey) }
+    }
+
+    func selectFolder(_ folder: DriveFolder) {
+        folderID = folder.id
+        folderName = folder.name
+        message = "Carpeta seleccionada: \(folder.name)."
+    }
+
+    func clearSelectedFolder() {
+        folderID = nil
+        folderName = nil
+    }
+
+    func listFolders(in parentID: String = "root") async throws -> [DriveFolder] {
+        guard let token = KeychainStore.get(tokenKey) else {
+            throw DriveError.notConnected
+        }
+
+        do {
+            return try await GoogleDriveService.shared.listFolders(in: parentID, accessToken: token)
+        } catch {
+            guard case DriveError.http(401) = error,
+                  let refresh = KeychainStore.get(refreshKey),
+                  let clientID = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String else {
+                throw error
+            }
+
+            let renewed = try await GoogleDriveService.shared.refreshAccessToken(refreshToken: refresh, clientID: clientID)
+            KeychainStore.set(renewed, key: tokenKey)
+            return try await GoogleDriveService.shared.listFolders(in: parentID, accessToken: renewed)
+        }
+    }
+
     func sync(library: ScriptLibrary) async {
-        guard let folderID, let token = KeychainStore.get(tokenKey) else {
+        guard let folderID, folderName != nil, let token = KeychainStore.get(tokenKey) else {
             message = "Conecta Google Drive y elige una carpeta para sincronizar."
             return
         }

@@ -13,6 +13,11 @@ struct DriveFile: Identifiable, Codable, Equatable {
     }
 }
 
+struct DriveFolder: Identifiable, Codable, Equatable {
+    let id: String
+    let name: String
+}
+
 actor GoogleDriveService {
     static let shared = GoogleDriveService()
     private let baseURL = URL(string: "https://www.googleapis.com/drive/v3")!
@@ -27,6 +32,18 @@ actor GoogleDriveService {
         ]
         if let pageToken { components.queryItems?.append(URLQueryItem(name: "pageToken", value: pageToken)) }
         let response: DriveFilesResponse = try await request(components.url!, accessToken: accessToken)
+        return response.files
+    }
+
+    func listFolders(in parentID: String, accessToken: String) async throws -> [DriveFolder] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
+        let query = "'\(parentID)' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'"
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "fields", value: "files(id,name)"),
+            URLQueryItem(name: "orderBy", value: "name_natural")
+        ]
+        let response: DriveFoldersResponse = try await request(components.url!, accessToken: accessToken)
         return response.files
     }
 
@@ -93,13 +110,20 @@ private struct DriveFilesResponse: Decodable {
     let files: [DriveFile]
 }
 
+private struct DriveFoldersResponse: Decodable {
+    let files: [DriveFolder]
+}
+
 enum DriveError: LocalizedError {
+    case notConnected
     case http(Int)
     case invalidText
     var errorDescription: String? {
         switch self {
+        case .notConnected: return "Conecta Google Drive para elegir una carpeta."
         case .http(401): return "La sesión de Google Drive expiró. Vuelve a conectar la cuenta."
         case .http(403): return "Google Drive denegó el acceso (403). Verifica que tu cuenta esté en OAuth consent screen > Test users y vuelve a conectar."
+        case .http(404): return "No se encontró la carpeta de Google Drive. Elige una carpeta nuevamente desde el selector."
         case .http(let code): return "Google Drive respondió con el código \(code)."
         case .invalidText: return "El archivo no contiene texto UTF-8 válido."
         }
