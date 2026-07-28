@@ -6,7 +6,23 @@ struct DriveFile: Identifiable, Codable, Equatable {
     let mimeType: String
     let modifiedTime: Date?
     let md5Checksum: String?
-    let folderPath: String? = nil
+    let folderPath: String?
+
+    init(
+        id: String,
+        name: String,
+        mimeType: String,
+        modifiedTime: Date? = nil,
+        md5Checksum: String? = nil,
+        folderPath: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.mimeType = mimeType
+        self.modifiedTime = modifiedTime
+        self.md5Checksum = md5Checksum
+        self.folderPath = folderPath
+    }
 
     var isScript: Bool {
         let lower = name.lowercased()
@@ -17,8 +33,15 @@ struct DriveFile: Identifiable, Codable, Equatable {
 struct DriveFolder: Identifiable, Codable, Equatable {
     let id: String
     let name: String
-    let parentID: String? = nil
-    let parentName: String? = nil
+    let parentID: String?
+    let parentName: String?
+
+    init(id: String, name: String, parentID: String? = nil, parentName: String? = nil) {
+        self.id = id
+        self.name = name
+        self.parentID = parentID
+        self.parentName = parentName
+    }
 }
 
 actor GoogleDriveService {
@@ -65,10 +88,14 @@ actor GoogleDriveService {
                 path: childPath
             )
         }
-        return files.sorted {
-            ($0.folderPath ?? "").localizedCaseInsensitiveCompare($1.folderPath ?? "") == .orderedAscending
-                || (($0.folderPath ?? "") == ($1.folderPath ?? "")
-                    && $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending)
+        return files.sorted { lhs, rhs in
+            let leftPath = lhs.folderPath ?? ""
+            let rightPath = rhs.folderPath ?? ""
+            let pathOrder = leftPath.localizedCaseInsensitiveCompare(rightPath)
+            if pathOrder != .orderedSame {
+                return pathOrder == .orderedAscending
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
         }
     }
 
