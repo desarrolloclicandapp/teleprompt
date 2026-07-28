@@ -1,4 +1,5 @@
 import MediaPlayer
+import Combine
 
 @MainActor
 final class MediaRemoteController: ObservableObject {
@@ -31,4 +32,3 @@ final class MediaRemoteController: ObservableObject {
         registered = false
     }
 }
-

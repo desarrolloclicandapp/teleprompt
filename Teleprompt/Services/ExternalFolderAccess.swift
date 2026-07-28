@@ -1,5 +1,5 @@
 import Foundation
-import UniformTypeIdentifiers
+import Combine
 
 @MainActor
 final class ExternalFolderAccess: ObservableObject {
@@ -28,4 +28,3 @@ final class ExternalFolderAccess: ObservableObject {
         folderName = nil
     }
 }
-
