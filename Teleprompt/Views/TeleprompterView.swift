@@ -100,7 +100,8 @@ struct TeleprompterView: View {
                                 ? (cameraSideIsTrailing ? .bottomLeading : .bottomTrailing)
                                 : .bottom
                         )
-                        .padding(.leading, isLandscape ? 8 : 0)
+                        .padding(.leading, isLandscape && cameraSideIsTrailing ? 8 : 0)
+                        .padding(.trailing, isLandscape && !cameraSideIsTrailing ? 8 : 0)
                         .padding(.bottom, 4)
                     .zIndex(5)
                 }
