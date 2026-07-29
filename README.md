@@ -1,6 +1,6 @@
 # Teleprompt para iOS
 
-Aplicacion nativa de teleprompter para iPhone/iPad, sin suscripciones y con biblioteca local. Se genera con XcodeGen y se compila en Codemagic.
+Aplicacion nativa de teleprompter para iPhone, sin suscripciones y con biblioteca local. Se genera con XcodeGen y se compila en Codemagic.
 
 ## MVP implementado
 
