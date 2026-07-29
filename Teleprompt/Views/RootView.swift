@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 struct RootView: View {
     @EnvironmentObject private var library: ScriptLibrary
+    @EnvironmentObject private var drive: DriveSyncCoordinator
+    @Environment(\.scenePhase) private var scenePhase
     @State private var query = ""
     @State private var sortNewest = true
     @State private var showingNew = false
@@ -71,7 +73,7 @@ struct RootView: View {
                     urls.forEach { url in
                         do {
                             let document = try DocumentImporter.read(url: url)
-                            _ = library.add(title: document.title, text: document.text)
+                            _ = library.importDocument(title: document.title, text: document.text)
                         } catch { importError = error.localizedDescription }
                     }
                 case .failure(let error): importError = error.localizedDescription
@@ -80,7 +82,20 @@ struct RootView: View {
             .alert("No se pudo importar", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("Aceptar", role: .cancel) { importError = nil }
             } message: { Text(importError ?? "") }
+            .task {
+                syncDriveIfNeeded()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    syncDriveIfNeeded()
+                }
+            }
         }
+    }
+
+    private func syncDriveIfNeeded() {
+        guard drive.folderID != nil else { return }
+        Task { await drive.sync(library: library) }
     }
 
     private func scriptRow(_ script: Script) -> some View {

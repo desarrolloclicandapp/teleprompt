@@ -74,6 +74,7 @@ final class DriveSyncCoordinator: ObservableObject {
             message = "Conecta Google Drive y elige una carpeta para sincronizar."
             return
         }
+        guard !isSyncing else { return }
         isSyncing = true
         defer { isSyncing = false }
         do {
@@ -96,26 +97,12 @@ final class DriveSyncCoordinator: ObservableObject {
                 let data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
                 let document = try DocumentImporter.read(data: data, fileExtension: file.name.split(separator: ".").last.map(String.init) ?? "txt", title: file.name)
                 let sourcePath = file.folderPath.map { "Google Drive/\($0)" } ?? "Google Drive"
-                let existing = library.scripts.first { script in
-                    script.sourceID == file.id
-                        || (script.sourceID == nil
-                            && (script.sourcePath == sourcePath || (sourcePath == "Google Drive" && script.sourcePath == nil))
-                            && script.title == document.title)
-                }
-                if var existing {
-                    existing.text = document.text
-                    existing.title = document.title
-                    existing.sourcePath = sourcePath
-                    existing.sourceID = file.id
-                    library.upsert(existing)
-                } else {
-                    _ = library.add(
-                        title: document.title,
-                        text: document.text,
-                        sourcePath: sourcePath,
-                        sourceID: file.id
-                    )
-                }
+                _ = library.importDocument(
+                    title: document.title,
+                    text: document.text,
+                    sourcePath: sourcePath,
+                    sourceID: file.id
+                )
             }
             lastSync = .now
             message = "Google Drive sincronizado."

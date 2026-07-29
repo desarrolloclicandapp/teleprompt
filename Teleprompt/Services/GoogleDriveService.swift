@@ -49,16 +49,27 @@ actor GoogleDriveService {
     private let baseURL = URL(string: "https://www.googleapis.com/drive/v3")!
 
     func listScripts(in folderID: String, accessToken: String, pageToken: String? = nil) async throws -> [DriveFile] {
-        var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
         let query = "'\(folderID)' in parents and trashed = false and (mimeType = 'text/plain' or mimeType = 'text/markdown' or mimeType = 'application/pdf' or mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')"
-        components.queryItems = [
-            URLQueryItem(name: "q", value: query),
-            URLQueryItem(name: "fields", value: "files(id,name,mimeType,modifiedTime,md5Checksum),nextPageToken"),
-            URLQueryItem(name: "orderBy", value: "name")
-        ]
-        if let pageToken { components.queryItems?.append(URLQueryItem(name: "pageToken", value: pageToken)) }
-        let response: DriveFilesResponse = try await request(components.url!, accessToken: accessToken)
-        return response.files
+        var files: [DriveFile] = []
+        var currentPageToken = pageToken
+
+        repeat {
+            var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
+            components.queryItems = [
+                URLQueryItem(name: "q", value: query),
+                URLQueryItem(name: "fields", value: "files(id,name,mimeType,modifiedTime,md5Checksum),nextPageToken"),
+                URLQueryItem(name: "orderBy", value: "name"),
+                URLQueryItem(name: "pageSize", value: "1000")
+            ]
+            if let currentPageToken {
+                components.queryItems?.append(URLQueryItem(name: "pageToken", value: currentPageToken))
+            }
+            let response: DriveFilesResponse = try await request(components.url!, accessToken: accessToken)
+            files.append(contentsOf: response.files)
+            currentPageToken = response.nextPageToken
+        } while currentPageToken != nil
+
+        return files
     }
 
     func listScriptsRecursively(
@@ -100,15 +111,27 @@ actor GoogleDriveService {
     }
 
     func listFolders(in parentID: String, accessToken: String) async throws -> [DriveFolder] {
-        var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
         let query = "'\(parentID)' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'"
-        components.queryItems = [
-            URLQueryItem(name: "q", value: query),
-            URLQueryItem(name: "fields", value: "files(id,name)"),
-            URLQueryItem(name: "orderBy", value: "name_natural")
-        ]
-        let response: DriveFoldersResponse = try await request(components.url!, accessToken: accessToken)
-        return response.files
+        var folders: [DriveFolder] = []
+        var currentPageToken: String?
+
+        repeat {
+            var components = URLComponents(url: baseURL.appendingPathComponent("files"), resolvingAgainstBaseURL: false)!
+            components.queryItems = [
+                URLQueryItem(name: "q", value: query),
+                URLQueryItem(name: "fields", value: "files(id,name),nextPageToken"),
+                URLQueryItem(name: "orderBy", value: "name_natural"),
+                URLQueryItem(name: "pageSize", value: "1000")
+            ]
+            if let currentPageToken {
+                components.queryItems?.append(URLQueryItem(name: "pageToken", value: currentPageToken))
+            }
+            let response: DriveFoldersResponse = try await request(components.url!, accessToken: accessToken)
+            folders.append(contentsOf: response.files)
+            currentPageToken = response.nextPageToken
+        } while currentPageToken != nil
+
+        return folders
     }
 
     func download(fileID: String, accessToken: String) async throws -> String {
@@ -172,10 +195,12 @@ private struct RefreshResponse: Decodable { let accessToken: String; enum Coding
 
 private struct DriveFilesResponse: Decodable {
     let files: [DriveFile]
+    let nextPageToken: String?
 }
 
 private struct DriveFoldersResponse: Decodable {
     let files: [DriveFolder]
+    let nextPageToken: String?
 }
 
 enum DriveError: LocalizedError {

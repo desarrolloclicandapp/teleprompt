@@ -30,6 +30,39 @@ final class ScriptLibrary: ObservableObject {
         return script
     }
 
+    @discardableResult
+    func importDocument(
+        title: String,
+        text: String,
+        sourcePath: String? = nil,
+        sourceID: String? = nil
+    ) -> Script {
+        let existingIndex = scripts.firstIndex { script in
+            if let sourceID {
+                return script.sourceID == sourceID
+                    || (script.sourceID == nil
+                        && (script.sourcePath == sourcePath
+                            || (sourcePath == "Google Drive" && script.sourcePath == nil))
+                        && script.title == title)
+            }
+            return script.sourceID == nil
+                && script.title == title
+                && script.text == text
+        }
+
+        if let existingIndex {
+            var existing = scripts[existingIndex]
+            existing.title = title
+            existing.text = text
+            existing.sourcePath = sourcePath
+            existing.sourceID = sourceID
+            upsert(existing)
+            return existing
+        }
+
+        return add(title: title, text: text, sourcePath: sourcePath, sourceID: sourceID)
+    }
+
     func upsert(_ script: Script) {
         var updated = script
         updated.updatedAt = .now
@@ -49,7 +82,7 @@ final class ScriptLibrary: ObservableObject {
 
     func importTextFile(from url: URL) {
         guard let document = try? DocumentImporter.read(url: url) else { return }
-        _ = add(title: document.title, text: document.text)
+        _ = importDocument(title: document.title, text: document.text)
     }
 
     func attachFolderBookmark(_ data: Data, to scriptID: UUID? = nil) {

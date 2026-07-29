@@ -54,7 +54,7 @@ enum DocumentImporter {
     }
 
     private static func readDOCX(_ url: URL) throws -> String {
-        guard let archive = try? Archive(url: url, accessMode: .read), let entry = archive["word/document.xml"] else {
+        guard let archive = try? Archive(url: url, accessMode: .read, pathEncoding: .utf8), let entry = archive["word/document.xml"] else {
             throw ImportError.unreadableDocument
         }
         var data = Data()
@@ -67,7 +67,7 @@ enum DocumentImporter {
     }
 
     private static func readDOCX(_ data: Data) throws -> String {
-        guard let archive = try? Archive(data: data, accessMode: .read), let entry = archive["word/document.xml"] else { throw ImportError.unreadableDocument }
+        guard let archive = try? Archive(data: data, accessMode: .read, pathEncoding: .utf8), let entry = archive["word/document.xml"] else { throw ImportError.unreadableDocument }
         var xml = Data()
         _ = try archive.extract(entry) { xml.append($0) }
         let parser = XMLParser(data: xml)

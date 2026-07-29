@@ -2,9 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var library: ScriptLibrary
+    @EnvironmentObject private var drive: DriveSyncCoordinator
     @Environment(\.openURL) private var openURL
     @StateObject private var externalFolder = ExternalFolderAccess()
-    @StateObject private var drive = DriveSyncCoordinator()
     @StateObject private var google = GoogleOAuth()
     @State private var showLocalFolderPicker = false
     @State private var showDriveFolderPicker = false
