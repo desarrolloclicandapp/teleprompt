@@ -13,7 +13,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "1. Responsable",
-                    text: "Teleprompt es ofrecida por CLIC AND APP AGENCY SL. Para consultas relacionadas con privacidad puedes escribir a marketing@clicandapp.com."
+                    text: "Teleprompt es ofrecida por CLIC AND APP AGENCY SL. Para consultas relacionadas con privacidad puedes escribir a desarrollo@clicandapp.com."
                 )
 
                 policySection(
@@ -68,7 +68,7 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     title: "10. Contacto",
-                    text: "Si tienes preguntas sobre esta política o sobre el tratamiento de tus datos, contacta con CLIC AND APP AGENCY SL en marketing@clicandapp.com."
+                    text: "Si tienes preguntas sobre esta política o sobre el tratamiento de tus datos, contacta con CLIC AND APP AGENCY SL en desarrollo@clicandapp.com."
                 )
             }
             .padding(.horizontal, 20)
