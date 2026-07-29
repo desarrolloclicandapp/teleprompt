@@ -92,6 +92,14 @@ struct SettingsView: View {
                 Label("Lector offline con velocidad manual", systemImage: "play.rectangle")
                 Label("Cámara y voz avanzada: opcionales", systemImage: "ellipsis.circle")
             }
+
+            Section("Información legal") {
+                NavigationLink {
+                    PrivacyPolicyView()
+                } label: {
+                    Label("Política de privacidad", systemImage: "hand.raised.fill")
+                }
+            }
         }
         .navigationTitle("Configuración")
         .onChange(of: google.isConnected) { _, connected in
@@ -115,5 +123,6 @@ struct SettingsView: View {
                 Task { await drive.sync(library: library) }
             }
         }
+
     }
 }
