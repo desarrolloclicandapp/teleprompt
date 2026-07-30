@@ -28,8 +28,9 @@ struct TeleprompterView: View {
     @State private var textDragStartOffset: CGFloat?
     @State private var cameraSideIsTrailing = true
 
-    private let minimumSpeed = 30.0
-    private let maximumSpeed = 600.0
+    private let minimumSpeed = 70.0
+    private let maximumSpeed = 800.0
+    private let referenceFontSize: CGFloat = 42
     private let portraitControlHeight: CGFloat = 228
 
     private var maxScrollOffset: CGFloat {
@@ -641,7 +642,14 @@ struct TeleprompterView: View {
 
     private func advanceScroll() {
         guard isPlaying, countdownValue == 0, maxScrollOffset > 0 else { return }
-        let pointsPerSecond = speed * 0.12
+        // Keep the perceived reading speed consistent as the text gets larger.
+        // The scroll distance is measured in points, so larger line heights need
+        // a proportional increase in points per second.
+        let actualFontSize = panelSize.width > 0
+            ? responsiveFontSize(for: panelSize.width)
+            : CGFloat(fontSize)
+        let fontScale = actualFontSize / referenceFontSize
+        let pointsPerSecond = speed * 0.12 * Double(fontScale)
         scrollOffset = min(maxScrollOffset, scrollOffset + CGFloat(pointsPerSecond / 60.0))
         if scrollOffset >= maxScrollOffset - 0.5 {
             isPlaying = false
