@@ -95,7 +95,8 @@ struct RemoteGamepadCapture: UIViewRepresentable {
 
             GCController.stopWirelessControllerDiscovery()
 
-            for controller in boundControllers.values {
+            let controllers = Array(boundControllers.values)
+            for controller in controllers {
                 clearHandlers(from: controller)
             }
             boundControllers.removeAll()
@@ -106,10 +107,12 @@ struct RemoteGamepadCapture: UIViewRepresentable {
             guard isRunning else { return }
 
             let connected = GCController.controllers()
-            let connectedIDs = Set(connected.map(ObjectIdentifier.init))
+            let connectedIDs = Set(connected.map { ObjectIdentifier($0) })
+            let disconnected = boundControllers.values.filter {
+                !connectedIDs.contains(ObjectIdentifier($0))
+            }
 
-            for controller in boundControllers.values
-            where !connectedIDs.contains(ObjectIdentifier(controller)) {
+            for controller in disconnected {
                 unbind(controller)
             }
 
@@ -134,8 +137,9 @@ struct RemoteGamepadCapture: UIViewRepresentable {
                 micro.allowsRotation = false
             }
 
-            bindButtons(in: controller.physicalInputProfile)
-            bindDirectionalInputs(in: controller.physicalInputProfile)
+            let profile = controller.physicalInputProfile
+            bindButtons(in: profile)
+            bindDirectionalInputs(in: profile)
 
             // Some inexpensive pads expose physical B as the controller Menu
             // button. Capture that button as B instead of allowing navigation.
@@ -148,7 +152,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
             boundControllers[identifier] = controller
 
 #if DEBUG
-            let profile = controller.physicalInputProfile
             print("[RemotePAD/Game] connected:", controller.vendorName ?? "unknown")
             print("[RemotePAD/Game] buttons:", profile.buttons.keys.sorted())
             print("[RemotePAD/Game] dpads:", profile.dpads.keys.sorted())
@@ -202,7 +205,7 @@ struct RemoteGamepadCapture: UIViewRepresentable {
         private func bindDirectionalInputs(in profile: GCPhysicalInputProfile) {
             var seenPads = Set<ObjectIdentifier>()
 
-            for (_, pad) in profile.dpads {
+            for pad in profile.dpads.values {
                 guard seenPads.insert(ObjectIdentifier(pad)).inserted else { continue }
 
                 pad.valueChangedHandler = { [weak self] _, xValue, yValue in
@@ -266,7 +269,7 @@ struct RemoteGamepadCapture: UIViewRepresentable {
 }
 
 final class RemoteGamepadHostView: UIView {
-    private var eventInteraction: UIInteraction?
+    private var eventInteraction: (any UIInteraction)?
 
     override var canBecomeFirstResponder: Bool { true }
 
