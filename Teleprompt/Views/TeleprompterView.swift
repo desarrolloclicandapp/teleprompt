@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import UIKit
 
@@ -8,6 +9,8 @@ struct TeleprompterView: View {
     @StateObject var recorder = CameraRecorder()
     @StateObject var mediaRemote = MediaRemoteController()
     @State var joystickInput: CGPoint = .zero
+    @State var lastRemoteActionKey: String?
+    @State var lastRemoteActionAt = Date.distantPast
     @State var isPlaying = false
     @State var speed: Double = 100
     @State var fontSize: Double = 26
