@@ -34,6 +34,8 @@
 	<string>Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.</string>
+	<key>GCSupportsControllerUserInteraction</key>
+	<true/>
 	<key>GCSupportedGameControllers</key>
 	<array>
 		<dict>
