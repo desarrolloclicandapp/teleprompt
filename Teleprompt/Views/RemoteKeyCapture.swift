@@ -19,6 +19,7 @@ enum RemoteAction {
     case next
     case previous
     case reset
+    case toggleRecording
     case toggleRecordingPause
     case increaseSpeed
     case decreaseSpeed

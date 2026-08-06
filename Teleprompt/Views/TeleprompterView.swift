@@ -684,7 +684,12 @@ struct TeleprompterView: View {
         case .toggleRecordingPause:
             guard showCamera && recorder.isRecording else { return }
             recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
-        case .playPause: togglePlayback()
+        case .toggleRecording:
+            guard showCamera else { return }
+            recorder.toggleRecording(interfaceOrientation: currentInterfaceOrientation)
+        case .playPause:
+            guard showCamera && recorder.isRecording else { return }
+            recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
         case .next:
             scrollOffset = min(maxScrollOffset, scrollOffset + max(180, viewportHeight * 0.38))
         case .previous:
