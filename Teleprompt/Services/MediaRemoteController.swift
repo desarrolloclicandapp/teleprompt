@@ -236,7 +236,7 @@ final class MediaRemoteController: NSObject, ObservableObject {
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.reset)
+            self?.onAction?(.decreaseSpeed)
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
@@ -264,7 +264,7 @@ final class MediaRemoteController: NSObject, ObservableObject {
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.reset)
+            self?.onAction?(.decreaseSpeed)
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
@@ -493,7 +493,7 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         guard let profile = resolvedDynamicProfile ?? resolvedButtonProfile.flatMap({ buttonProfiles[$0] }) else { return }
 
         if (pressed & profile.playPause) != 0 { onAction?(.playPause) }
-        if (pressed & profile.reset) != 0 { onAction?(.reset) }
+        if (pressed & profile.reset) != 0 { onAction?(.decreaseSpeed) }
         if (pressed & profile.pauseRecording) != 0 { onAction?(.toggleRecordingPause) }
         if (pressed & profile.toggleRecording) != 0 { onAction?(.toggleRecording) }
     }
