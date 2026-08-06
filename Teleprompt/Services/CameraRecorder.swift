@@ -80,6 +80,19 @@ final class CameraRecorder: NSObject, ObservableObject {
         stopRecording(finalizeSession: true)
     }
 
+    func stopRecordingSessionAndWait() async {
+        guard isRecording else { return }
+        isPaused = false
+        stopRecording(finalizeSession: true)
+
+        for _ in 0..<300 {
+            if !isRecording && !shouldFinalizeAfterStop && !isFinalizing {
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
     private func startSession(interfaceOrientation: UIInterfaceOrientation) {
         isRecording = true
         isPaused = false

@@ -144,10 +144,10 @@ struct TeleprompterView: View {
             mediaRemote.stop()
             joystickInput = .zero
 
-            if recorder.isRecording {
-                recorder.stopRecordingSession()
+            Task {
+                await recorder.stopRecordingSessionAndWait()
+                recorder.stopSession()
             }
-            recorder.stopSession()
         }
         .animation(.easeInOut(duration: 0.2), value: showCamera)
     }
@@ -347,7 +347,6 @@ struct TeleprompterView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
-                .disabled(showCamera && recorder.isRecording)
                 .accessibilityLabel(showCamera ? "Apagar cámara" : "Encender cámara")
 
                 if showCamera {
@@ -706,9 +705,11 @@ struct TeleprompterView: View {
 
     private func toggleCamera() {
         if showCamera {
-
             showCamera = false
-            recorder.stopSession()
+            Task {
+                await recorder.stopRecordingSessionAndWait()
+                recorder.stopSession()
+            }
         } else {
             showCamera = true
         }
@@ -773,4 +774,5 @@ private struct ReaderSettingsView: View {
         .presentationDetents([.medium])
     }
 }
+
 
