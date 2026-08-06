@@ -12,6 +12,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     @Published private(set) var isRecording = false
     @Published private(set) var isPaused = false
     @Published private(set) var isReady = false
+    @Published private(set) var isProcessing = false
     @Published private(set) var savedToPhotos = false
     @Published var authorizationMessage: String?
 
@@ -93,6 +94,8 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     func toggleRecording(interfaceOrientation: UIInterfaceOrientation = .portrait) {
+        guard !isProcessing else { return }
+
         if isRecording {
             stopRecording(finalizeSession: true)
         } else {
@@ -101,7 +104,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     func togglePauseResume(interfaceOrientation: UIInterfaceOrientation = .portrait) {
-        guard isRecording, !isFinalizing else { return }
+        guard isRecording, !isFinalizing, !isProcessing else { return }
         pendingResumeOrientation = interfaceOrientation
 
         if isPaused {
@@ -120,20 +123,24 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     func stopRecordingSession() {
-        guard isRecording else { return }
+        guard isRecording, !isProcessing else { return }
         isPaused = false
         shouldResumeAfterStop = false
         stopRecording(finalizeSession: true)
     }
 
     func stopRecordingSessionAndWait() async {
-        guard isRecording else { return }
-        isPaused = false
-        shouldResumeAfterStop = false
-        stopRecording(finalizeSession: true)
+        if isRecording && !isProcessing {
+            isPaused = false
+            shouldResumeAfterStop = false
+            stopRecording(finalizeSession: true)
+        }
+
+        guard isRecording || isProcessing else { return }
 
         for _ in 0..<300 {
             if !isRecording,
+               !isProcessing,
                !shouldFinalizeAfterStop,
                !isFinalizing,
                !isStoppingSegment {
@@ -144,6 +151,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     private func startSession(interfaceOrientation: UIInterfaceOrientation) {
+        guard !isProcessing else { return }
         guard isReady else {
             authorizationMessage = "Espera a que la cámara termine de prepararse antes de grabar."
             return
@@ -151,6 +159,7 @@ final class CameraRecorder: NSObject, ObservableObject {
 
         isRecording = true
         isPaused = false
+        isProcessing = false
         shouldFinalizeAfterStop = false
         isFinalizing = false
         isStoppingSegment = false
@@ -161,7 +170,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     private func startRecordingSegment(interfaceOrientation: UIInterfaceOrientation) {
-        guard isRecording, !isPaused, !isStoppingSegment, !isFinalizing else { return }
+        guard isRecording, !isPaused, !isStoppingSegment, !isFinalizing, !isProcessing else { return }
         guard !movieOutput.isRecording else { return }
 
         if let connection = movieOutput.connection(with: .video),
@@ -187,6 +196,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     private func stopRecording(finalizeSession: Bool) {
         shouldFinalizeAfterStop = shouldFinalizeAfterStop || finalizeSession
         if finalizeSession {
+            isProcessing = true
             shouldResumeAfterStop = false
         }
 
@@ -207,11 +217,13 @@ final class CameraRecorder: NSObject, ObservableObject {
         guard !isFinalizing, shouldFinalizeAfterStop else { return }
 
         isFinalizing = true
+        isProcessing = true
         shouldFinalizeAfterStop = false
         shouldResumeAfterStop = false
 
         defer {
             isFinalizing = false
+            isProcessing = false
             isRecording = false
             isPaused = false
             isStoppingSegment = false
@@ -376,6 +388,8 @@ extension CameraRecorder: AVCaptureFileOutputRecordingDelegate {
                 authorizationMessage = "La grabación falló: \(error.localizedDescription)"
                 try? FileManager.default.removeItem(at: outputFileURL)
                 shouldResumeAfterStop = false
+                shouldFinalizeAfterStop = false
+                isProcessing = false
                 isRecording = false
                 isPaused = false
                 return
