@@ -79,7 +79,7 @@ extension TeleprompterView {
             speed = max(minimumSpeed, speed - 5)
 
         case .joystick(let x, let y):
-            joystickInput = CGPoint(x: x, y: y)
+            joystickInput = CGPoint(x: CGFloat(x), y: CGFloat(y))
 
         case .toggleRecordingPause:
             // X: only pause/resume an existing recording.
