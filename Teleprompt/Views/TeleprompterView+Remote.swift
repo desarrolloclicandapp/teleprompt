@@ -6,7 +6,7 @@ extension TeleprompterView {
     func advanceScroll() {
         guard countdownValue == 0 else { return }
 
-        // X changes the configured reading speed. It never touches recorder state.
+        // Joystick X changes the configured reading speed. It never touches recorder state.
         let horizontalInput = abs(joystickInput.x) > 0.12
             ? Double(joystickInput.x)
             : 0
@@ -20,7 +20,7 @@ extension TeleprompterView {
 
         guard maxScrollOffset > 0 else { return }
 
-        // Y manually moves the text whether automatic playback is running or paused.
+        // Joystick Y moves the text while automatic playback keeps its current state.
         let verticalInput = abs(joystickInput.y) > 0.12
             ? Double(joystickInput.y)
             : 0
@@ -41,12 +41,13 @@ extension TeleprompterView {
             + CGFloat(playbackDeltaPerFrame + joystickDeltaPerFrame)
         scrollOffset = min(maxScrollOffset, max(0, requestedOffset))
 
-        if scrollOffset >= maxScrollOffset - 0.5 {
-            isPlaying = false
-        }
+        // Reaching the end does not change isPlaying. If the user moves back up,
+        // automatic playback continues without requiring another Play press.
     }
 
     func handleRemoteAction(_ action: RemoteAction) {
+        guard !recorder.isProcessing else { return }
+
         if shouldIgnoreDuplicate(action) {
             return
         }
@@ -138,6 +139,8 @@ extension TeleprompterView {
     }
 
     func toggleRecordingFromRemote() {
+        guard !recorder.isProcessing else { return }
+
         Task { @MainActor in
             if recorder.isRecording {
                 await recorder.stopRecordingSessionAndWait()
@@ -145,7 +148,7 @@ extension TeleprompterView {
             }
 
             await recorder.prepare()
-            guard recorder.isReady else { return }
+            guard recorder.isReady, !recorder.isProcessing else { return }
 
             showCamera = true
             recorder.toggleRecording(
@@ -155,12 +158,15 @@ extension TeleprompterView {
     }
 
     func resetReader() {
+        guard !recorder.isProcessing else { return }
         cancelCountdown()
         isPlaying = false
         scrollOffset = 0
     }
 
     func toggleCamera() {
+        guard !recorder.isProcessing else { return }
+
         if showCamera {
             showCamera = false
             Task {
@@ -173,6 +179,7 @@ extension TeleprompterView {
     }
 
     func togglePlaybackFromRemote() {
+        guard !recorder.isProcessing else { return }
         cancelCountdown()
 
         if isPlaying {
@@ -187,6 +194,8 @@ extension TeleprompterView {
     }
 
     func togglePlayback() {
+        guard !recorder.isProcessing else { return }
+
         if isPlaying {
             isPlaying = false
             cancelCountdown()
@@ -205,6 +214,7 @@ extension TeleprompterView {
     }
 
     func beginCountdown() {
+        guard !recorder.isProcessing else { return }
         cancelCountdown()
 
         let generation = UUID()
