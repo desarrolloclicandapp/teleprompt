@@ -93,17 +93,20 @@ final class CameraRecorder: NSObject, ObservableObject {
         guard isRecording, !isPaused else { return }
         if movieOutput.isRecording { return }
 
-        if let connection = movieOutput.connection(with: .video),
-           connection.isVideoOrientationSupported {
+        if let connection = movieOutput.connection(with: .video) {
+            let angle: CGFloat
             switch interfaceOrientation {
             case .landscapeLeft:
-                connection.videoOrientation = .landscapeLeft
+                angle = 90
             case .landscapeRight:
-                connection.videoOrientation = .landscapeRight
+                angle = -90
             case .portraitUpsideDown:
-                connection.videoOrientation = .portraitUpsideDown
+                angle = 180
             default:
-                connection.videoOrientation = .portrait
+                angle = 0
+            }
+            if connection.isVideoRotationAngleSupported(angle) {
+                connection.videoRotationAngle = angle
             }
         }
 
@@ -176,17 +179,19 @@ final class CameraRecorder: NSObject, ObservableObject {
         var cursor = CMTime.zero
         for url in recordingURLs {
             let asset = AVURLAsset(url: url)
-            guard let sourceVideo = asset.tracks(withMediaType: .video).first else { continue }
-            let duration = asset.duration
-
             do {
+                let sourceVideoTracks = try await asset.loadTracks(withMediaType: .video)
+                guard let sourceVideo = sourceVideoTracks.first else { continue }
+                let duration = try await asset.load(.duration)
+
                 try destinationVideo.insertTimeRange(
                     CMTimeRange(start: .zero, duration: duration),
                     of: sourceVideo,
                     at: cursor
                 )
 
-                if let sourceAudio = asset.tracks(withMediaType: .audio).first,
+                let sourceAudioTracks = try await asset.loadTracks(withMediaType: .audio)
+                if let sourceAudio = sourceAudioTracks.first,
                    let destinationAudio {
                     try destinationAudio.insertTimeRange(
                         CMTimeRange(start: .zero, duration: duration),

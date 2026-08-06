@@ -54,7 +54,9 @@ final class MediaRemoteController: NSObject, ObservableObject {
         ) { [weak self] notification in
             guard let self,
                   let controller = notification.object as? GCController else { return }
-            self.bindNativeController(controller)
+            Task { @MainActor in
+                self.bindNativeController(controller)
+            }
         }
 
         disconnectObserver = NotificationCenter.default.addObserver(
@@ -64,7 +66,9 @@ final class MediaRemoteController: NSObject, ObservableObject {
         ) { [weak self] notification in
             guard let self,
                   let controller = notification.object as? GCController else { return }
-            self.unbindNativeController(controller)
+            Task { @MainActor in
+                self.unbindNativeController(controller)
+            }
         }
 
         startGameControllerDiscovery()
@@ -115,7 +119,7 @@ final class MediaRemoteController: NSObject, ObservableObject {
                 self.onAction?(action)
             }
         }
-        GCController.startWirelessControllerDiscovery { [weak self] _ in
+        GCController.startWirelessControllerDiscovery { [weak self] in
             Task { @MainActor in
                 self?.refreshGameControllers()
             }
@@ -479,11 +483,11 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         guard !candidates.isEmpty else { return nil }
 
         guard let best = candidates.max(by: {
-            parseConfidence(for: $0.parsed, changedButtons: $0.parsed.buttons ^ lastButtons) <
-            parseConfidence(for: $1.parsed, changedButtons: $1.parsed.buttons ^ lastButtons)
+            parseConfidence(for: $0, changedButtons: $0.buttons ^ lastButtons) <
+            parseConfidence(for: $1, changedButtons: $1.buttons ^ lastButtons)
         }) else { return nil }
 
-        return (best.parsed.x, best.parsed.y, best.parsed.buttons)
+        return best
     }
 
     private func axisCandidates(from raw: [UInt8]) -> [(x: Double, y: Double, buttons: UInt8)] {
