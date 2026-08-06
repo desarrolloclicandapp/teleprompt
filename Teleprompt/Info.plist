@@ -16,8 +16,8 @@
 	<string>Teleprompt</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0.1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
 	<key>CFBundleVersion</key>
 	<string>2</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -36,6 +36,25 @@
 	<string>Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.</string>
 	<key>GCSupportsControllerUserInteraction</key>
 	<true/>
+	<key>GCSupportedGameControllers</key>
+	<array>
+		<dict>
+			<key>ProfileName</key>
+			<string>ExtendedGamepad</string>
+		</dict>
+		<dict>
+			<key>ProfileName</key>
+			<string>Gamepad</string>
+		</dict>
+		<dict>
+			<key>ProfileName</key>
+			<string>MicroGamepad</string>
+		</dict>
+		<dict>
+			<key>ProfileName</key>
+			<string>DirectionalGamepad</string>
+		</dict>
+	</array>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Teleprompt usa reconocimiento local para avanzar el guion mientras hablas.</string>
 	<key>UILaunchScreen</key>
@@ -53,17 +72,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLSchemes</key>
-			<array><string>com.googleusercontent.apps.907761302167-ql6fmvbli2gcnlgobo02gb3t6raca8bq</string></array>
+			<array>
+				<string>com.googleusercontent.apps.907761302167-ql6fmvbli2gcnlgobo02gb3t6raca8bq</string>
+			</array>
 		</dict>
 	</array>
 </dict>
