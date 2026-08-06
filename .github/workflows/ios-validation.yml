@@ -5,9 +5,6 @@ on:
     branches:
       - main
       - codex/remote-pad-camera-stable-review
-  push:
-    branches:
-      - codex/fix-remote-pad-abxy
 
 permissions:
   contents: read
