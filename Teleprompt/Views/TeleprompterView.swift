@@ -694,7 +694,38 @@ struct TeleprompterView: View {
             joystickInput = CGPoint(x: x, y: y)
         case .toggleRecordingPause,
              .toggleRecording:
-            break
+            if let action = makeRecordingAction(action) {
+                Task {
+                    switch action {
+                    case .pause:
+                        recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
+                    case .resume:
+                        recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
+                    case .start:
+                        recorder.toggleRecording(interfaceOrientation: currentInterfaceOrientation)
+                    case .stop:
+                        await recorder.stopRecordingSessionAndWait()
+                    }
+                }
+            }
+        }
+    }
+
+    private enum PendingRecordingAction {
+        case resume
+        case pause
+        case start
+        case stop
+    }
+
+    private func makeRecordingAction(_ action: RemoteAction) -> PendingRecordingAction? {
+        switch action {
+        case .toggleRecordingPause:
+            return recorder.isRecording ? (recorder.isPaused ? .resume : .pause) : nil
+        case .toggleRecording:
+            return recorder.isRecording ? .stop : .start
+        default:
+            return nil
         }
     }
 

@@ -37,14 +37,28 @@ final class MediaRemoteController: NSObject, ObservableObject {
         center.previousTrackCommand.isEnabled = true
         center.skipForwardCommand.isEnabled = true
         center.skipBackwardCommand.isEnabled = true
+        center.seekForwardCommand.isEnabled = true
+        center.seekBackwardCommand.isEnabled = true
+        center.changePlaybackRateCommand.isEnabled = true
+        center.stopCommand.isEnabled = true
         registrations = [
             (center.playCommand, center.playCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
             (center.pauseCommand, center.pauseCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
             (center.togglePlayPauseCommand, center.togglePlayPauseCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
             (center.nextTrackCommand, center.nextTrackCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
             (center.previousTrackCommand, center.previousTrackCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
-            (center.skipForwardCommand, center.skipForwardCommand.addTarget { [weak self] _ in self?.onAction?(.increaseSpeed); return .success }),
-            (center.skipBackwardCommand, center.skipBackwardCommand.addTarget { [weak self] _ in self?.onAction?(.decreaseSpeed); return .success })
+            (center.skipForwardCommand, center.skipForwardCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
+            (center.skipBackwardCommand, center.skipBackwardCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
+            (center.seekForwardCommand, center.seekForwardCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
+            (center.seekBackwardCommand, center.seekBackwardCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
+            (center.changePlaybackRateCommand, center.changePlaybackRateCommand.addTarget { [weak self] _ in
+                self?.onAction?(.playPause)
+                return .success
+            }),
+            (center.stopCommand, center.stopCommand.addTarget { [weak self] _ in
+                self?.onAction?(.reset)
+                return .success
+            })
         ]
 
         connectObserver = NotificationCenter.default.addObserver(
@@ -105,6 +119,10 @@ final class MediaRemoteController: NSObject, ObservableObject {
         center.previousTrackCommand.isEnabled = false
         center.skipForwardCommand.isEnabled = false
         center.skipBackwardCommand.isEnabled = false
+        center.seekForwardCommand.isEnabled = false
+        center.seekBackwardCommand.isEnabled = false
+        center.changePlaybackRateCommand.isEnabled = false
+        center.stopCommand.isEnabled = false
         registered = false
         activeSource = .mediaRemote
     }
@@ -323,6 +341,7 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
     private var buttonProfileConfidence: [BluetoothButtonProfile: Int] = [.standard: 0, .shifted: 0]
     private var buttonProfileSampleCount = 0
     private var buttonBitFrequency: [UInt8: Int] = [:]
+    private var learnedButtonOrder: [UInt8] = []
 
     private enum BluetoothButtonProfile: Int, CaseIterable {
         case standard
@@ -378,6 +397,7 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         resolvedDynamicProfile = nil
         buttonProfileConfidence = [.standard: 0, .shifted: 0]
         buttonProfileSampleCount = 0
+        learnedButtonOrder.removeAll()
         buttonBitFrequency.removeAll()
         onAction?(.joystick(x: 0, y: 0))
     }
@@ -430,6 +450,7 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
             resolvedDynamicProfile = nil
             buttonProfileConfidence = [.standard: 0, .shifted: 0]
             buttonProfileSampleCount = 0
+            learnedButtonOrder.removeAll()
             buttonBitFrequency.removeAll()
             onAction?(.joystick(x: 0, y: 0))
         }
@@ -490,7 +511,10 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
             learnButtonProfile(from: pressed)
         }
 
-        guard let profile = resolvedDynamicProfile ?? resolvedButtonProfile.flatMap({ buttonProfiles[$0] }) else { return }
+        guard let profile = resolvedDynamicProfile ?? resolvedButtonProfile.flatMap({ buttonProfiles[$0] }) else {
+            emitFallbackButtonActions(pressed)
+            return
+        }
 
         if (pressed & profile.playPause) != 0 { onAction?(.playPause) }
         if (pressed & profile.reset) != 0 { onAction?(.reset) }
@@ -498,13 +522,44 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         if (pressed & profile.rewind) != 0 { onAction?(.previous) }
     }
 
+    private func emitFallbackButtonActions(_ pressed: UInt8) {
+        guard !learnedButtonOrder.isEmpty else { return }
+
+        for bit in [UInt8](0..<8).map({ UInt8(1 << $0) }) {
+            if (pressed & bit) == 0 { continue }
+            guard let action = fallbackAction(for: bit) else { continue }
+            onAction?(action)
+        }
+    }
+
+    private func fallbackAction(for pressedBit: UInt8) -> RemoteAction? {
+        guard let position = learnedButtonOrder.firstIndex(of: pressedBit) else { return nil }
+
+        switch position {
+        case 0:
+            return .playPause
+        case 1:
+            return .toggleRecording
+        case 2:
+            return .next
+        case 3:
+            return .previous
+        default:
+            return nil
+        }
+    }
+
     private func learnButtonProfile(from pressed: UInt8) {
         guard pressed != 0 else { return }
+        guard isLikelyButtonByte(pressed) else { return }
 
         for bit in 0..<8 {
             let mask: UInt8 = UInt8(1 << bit)
             if (pressed & mask) != 0 {
                 buttonBitFrequency[mask, default: 0] += 1
+                if !learnedButtonOrder.contains(mask) && learnedButtonOrder.count < 4 {
+                    learnedButtonOrder.append(mask)
+                }
             }
         }
 
@@ -523,6 +578,12 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         }
 
         if buttonProfileSampleCount >= buttonProfileMaximumSamples {
+            if let orderProfile = resolveDynamicProfileFromObservedOrder() {
+                resolvedDynamicProfile = orderProfile
+                resolvedButtonProfile = nil
+                return
+            }
+
             if let fallback = deriveDynamicButtonProfile() {
                 resolvedDynamicProfile = fallback
                 resolvedButtonProfile = nil
@@ -579,6 +640,16 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         )
     }
 
+    private func resolveDynamicProfileFromObservedOrder() -> BluetoothButtonProfileDefinition? {
+        guard learnedButtonOrder.count >= 4 else { return nil }
+        return BluetoothButtonProfileDefinition(
+            playPause: learnedButtonOrder[0],
+            reset: learnedButtonOrder[1],
+            fastForward: learnedButtonOrder[2],
+            rewind: learnedButtonOrder[3]
+        )
+    }
+
     private func resolvedStaticFallbackProfile() -> BluetoothButtonProfile? {
         let ordered = buttonProfileConfidence
             .sorted { left, right in
@@ -609,31 +680,37 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         var parsed: [(x: Double, y: Double, buttons: UInt8)] = []
         if raw.count < 3 { return parsed }
 
+        func appendIfLikely(_ candidate: (x: Double, y: Double, buttons: UInt8)?) {
+            guard let candidate else { return }
+            guard candidate.buttons == 0 || isLikelyButtonByte(candidate.buttons) else { return }
+            parsed.append(candidate)
+        }
+
         let maxStart = raw.count - 3
         for start in 0...maxStart {
-            if let candidate = parseReport(buttonByte: raw[start], xByte: raw[start + 1], yByte: raw[start + 2]) {
-                parsed.append(candidate)
-            }
+            appendIfLikely(
+                parseReport(buttonByte: raw[start], xByte: raw[start + 1], yByte: raw[start + 2])
+            )
 
             if start + 3 < raw.count,
                let candidate = parseReport(buttonByte: raw[start], xByte: raw[start + 2], yByte: raw[start + 3]) {
-                parsed.append(candidate)
+                appendIfLikely(candidate)
             }
 
             if start + 2 < raw.count {
-                if let candidate = parseReport(buttonByte: raw[start + 2], xByte: raw[start], yByte: raw[start + 1]) {
-                    parsed.append(candidate)
-                }
+                appendIfLikely(
+                    parseReport(buttonByte: raw[start + 2], xByte: raw[start], yByte: raw[start + 1])
+                )
             }
 
             if start + 3 < raw.count && start + 4 < raw.count {
-                if let candidate = parseReport(
-                    buttonByte: raw[start + 1],
-                    xByte: raw[start + 2],
-                    yByte: raw[start + 3]
-                ) {
-                    parsed.append(candidate)
-                }
+                appendIfLikely(
+                    parseReport(
+                        buttonByte: raw[start + 1],
+                        xByte: raw[start + 2],
+                        yByte: raw[start + 3]
+                    )
+                )
             }
         }
 
@@ -643,7 +720,14 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
     private func parseConfidence(for parsed: (x: Double, y: Double, buttons: UInt8), changedButtons: UInt8) -> Double {
         let joystickMagnitude = abs(parsed.x) + abs(parsed.y)
         let buttonDelta = Double(changedButtons.nonzeroBitCount) * 0.85
-        return joystickMagnitude + buttonDelta
+        let buttonMaskPenalty = isLikelyButtonByte(parsed.buttons) ? 0 : -1.0
+        let buttonCountPenalty = changedButtons.nonzeroBitCount > 2 ? -0.35 : 0
+        return joystickMagnitude + buttonDelta + buttonMaskPenalty + buttonCountPenalty
+    }
+
+    private func isLikelyButtonByte(_ value: UInt8) -> Bool {
+        if value == 0 { return true }
+        return value.nonzeroBitCount <= 4
     }
 
     private func normalizeAxis(byte: UInt8) -> Double {
