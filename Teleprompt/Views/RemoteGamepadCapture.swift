@@ -130,9 +130,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
             controller.handlerQueue = .main
 
             if let micro = controller.microGamepad {
-                // Generic RemotePAD devices frequently expose their joystick as
-                // a micro-gamepad d-pad. Absolute values make the physical
-                // center the neutral point instead of the first touched point.
                 micro.reportsAbsoluteDpadValues = true
                 micro.allowsRotation = false
             }
@@ -141,8 +138,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
             bindButtons(in: profile)
             bindDirectionalInputs(in: profile)
 
-            // Some inexpensive pads expose physical B as the controller Menu
-            // button. Capture that button as B instead of allowing navigation.
             controller.controllerPausedHandler = { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.onAction(.toggleControls)
@@ -271,8 +266,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
 final class RemoteGamepadHostView: UIView {
     private var eventInteraction: (any UIInteraction)?
 
-    override var canBecomeFirstResponder: Bool { true }
-
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else { return }
@@ -280,41 +273,14 @@ final class RemoteGamepadHostView: UIView {
     }
 
     func activateCapture() {
-        if !isFirstResponder {
-            becomeFirstResponder()
-        }
-
-        // On current iOS versions, request exclusive GameController delivery so
-        // B/Menu doesn't become a UIKit "back" navigation event.
+        // This view deliberately never becomes first responder. Keyboard-style
+        // events from TeleprompterPAD must remain owned by RemoteKeyView.
         if #available(iOS 26.0, *), eventInteraction == nil {
             let interaction = GCEventInteraction()
             interaction.handledEventTypes = .gamepad
             interaction.receivesEventsInView = false
             addInteraction(interaction)
             eventInteraction = interaction
-        }
-    }
-
-    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        var unhandled = Set<UIPress>()
-
-        for press in presses {
-            guard let code = press.key?.keyCode else {
-                unhandled.insert(press)
-                continue
-            }
-
-            // Consume Escape/B-like navigation presses. The corresponding
-            // GameController button handler performs the requested B action.
-            if code == .keyboardEscape {
-                continue
-            }
-
-            unhandled.insert(press)
-        }
-
-        if !unhandled.isEmpty {
-            super.pressesBegan(unhandled, with: event)
         }
     }
 }
