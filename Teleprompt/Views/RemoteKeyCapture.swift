@@ -166,7 +166,7 @@ final class RemoteKeyView: UIView {
     }
 
     private func bindKeyboard(_ keyboard: GCKeyboard) {
-        let input = keyboard.keyboardInput
+        guard let input = keyboard.keyboardInput else { return }
         guard boundKeyboardInput !== input else { return }
 
         unbindKeyboard()
