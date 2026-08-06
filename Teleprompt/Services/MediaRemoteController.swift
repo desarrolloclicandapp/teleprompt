@@ -70,18 +70,19 @@ final class MediaRemoteController: NSObject, ObservableObject {
         center.stopCommand.isEnabled = true
 
         registrations = [
-            register(center.playCommand, action: .playPause),
-            register(center.pauseCommand, action: .playPause),
-            register(center.togglePlayPauseCommand, action: .playPause),
+            // RemotePAD iOS teleprompter mode exposes physical X as the
+            // system play/pause command.
+            register(center.playCommand, action: .toggleRecordingPause),
+            register(center.pauseCommand, action: .toggleRecordingPause),
+            register(center.togglePlayPauseCommand, action: .toggleRecordingPause),
 
-            // Some teleprompter remotes expose their extra buttons as media
-            // commands instead of a native game controller or BLE keyboard.
-            register(center.nextTrackCommand, action: .toggleControls),
-            register(center.skipForwardCommand, action: .toggleControls),
-            register(center.seekForwardCommand, action: .toggleControls),
-            register(center.previousTrackCommand, action: .toggleRecordingPause),
-            register(center.skipBackwardCommand, action: .toggleRecordingPause),
-            register(center.seekBackwardCommand, action: .toggleRecordingPause),
+            // Physical A is fast-forward, B is rewind and Y is go-to-top.
+            register(center.nextTrackCommand, action: .playPause),
+            register(center.skipForwardCommand, action: .playPause),
+            register(center.seekForwardCommand, action: .playPause),
+            register(center.previousTrackCommand, action: .toggleControls),
+            register(center.skipBackwardCommand, action: .toggleControls),
+            register(center.seekBackwardCommand, action: .toggleControls),
             register(center.stopCommand, action: .toggleRecording)
         ]
     }
