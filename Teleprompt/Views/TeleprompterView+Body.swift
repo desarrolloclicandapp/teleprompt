@@ -272,7 +272,7 @@ extension TeleprompterView {
         }
         .frame(width: 48, height: 84)
         .contentShape(Rectangle())
-        .gesture(resizeGesture(resizeWidth: false, resizeHeight: false))
+        .gesture(resizeGesture(resizeWidth: true, resizeHeight: false))
         .accessibilityLabel("Cambiar el ancho del panel de texto")
     }
 
