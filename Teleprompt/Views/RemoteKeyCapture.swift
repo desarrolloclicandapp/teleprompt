@@ -276,22 +276,24 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: UIKeyboardHIDUsage) -> RemoteAction? {
         switch code {
-        // RemotePAD game mode: literal A/B/X/Y contract.
+        // Literal game-controller keyboard fallbacks.
         case .keyboardA, .keyboardReturnOrEnter:
             return .playPause
         case .keyboardB, .keyboardEscape:
             return .toggleControls
         case .keyboardX:
             return .toggleRecordingPause
-        case .keyboardY:
-            return .toggleRecording
 
-        // Secondary compatibility mappings.
+        // Official TeleprompterPAD iOS mapping:
+        // physical A -> R/U or Page Down (fast forward)
+        // physical B -> F/H or Page Up (rewind)
+        // physical X -> Y or Space (play/pause)
+        // physical Y -> J or Home (go to top)
         case .keyboardR, .keyboardU, .keyboardPageDown:
             return .playPause
         case .keyboardF, .keyboardH, .keyboardPageUp:
             return .toggleControls
-        case .keyboardSpacebar:
+        case .keyboardY, .keyboardSpacebar:
             return .toggleRecordingPause
         case .keyboardJ, .keyboardHome:
             return .toggleRecording
@@ -303,22 +305,20 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: GCKeyCode) -> RemoteAction? {
         switch code {
-        // RemotePAD game mode: literal A/B/X/Y contract.
+        // Literal game-controller keyboard fallbacks.
         case .keyA, .returnOrEnter:
             return .playPause
         case .keyB, .escape:
             return .toggleControls
         case .keyX:
             return .toggleRecordingPause
-        case .keyY:
-            return .toggleRecording
 
-        // Secondary compatibility mappings.
+        // Official TeleprompterPAD iOS keyboard mapping.
         case .keyR, .keyU, .pageDown:
             return .playPause
         case .keyF, .keyH, .pageUp:
             return .toggleControls
-        case .spacebar:
+        case .keyY, .spacebar:
             return .toggleRecordingPause
         case .keyJ, .home:
             return .toggleRecording
