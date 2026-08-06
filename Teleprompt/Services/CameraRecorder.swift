@@ -199,12 +199,11 @@ final class CameraRecorder: NSObject, ObservableObject {
                         at: cursor
                     )
                 }
+                cursor = cursor + duration
             } catch {
                 authorizationMessage = "No se pudieron unir los segmentos de video: \(error.localizedDescription)"
                 return nil
             }
-
-            cursor = cursor + duration
         }
 
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)

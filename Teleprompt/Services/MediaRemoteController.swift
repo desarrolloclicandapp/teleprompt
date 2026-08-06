@@ -175,19 +175,12 @@ final class MediaRemoteController: NSObject, ObservableObject {
             return
         }
 
-        if let gamepad = controller.gamepad {
-            setupGamepad(gamepad)
-            activeSource = .gameController
-            gameControllerConnected = true
-            bluetoothFallback.stop()
-            return
-        }
-
         if let micro = controller.microGamepad {
             setupMicroGamepad(micro)
             activeSource = .gameController
             gameControllerConnected = true
             bluetoothFallback.stop()
+            return
         }
 
         updateActiveSource()
@@ -205,17 +198,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
             extended.buttonX.pressedChangedHandler = nil
             extended.buttonY.pressedChangedHandler = nil
             extended.dpad.valueChangedHandler = nil
-        }
-
-        if let gamepad = controller.gamepad {
-            gamepad.valueChangedHandler = nil
-            gamepad.buttonA.pressedChangedHandler = nil
-            gamepad.buttonB.pressedChangedHandler = nil
-            gamepad.buttonX.pressedChangedHandler = nil
-            gamepad.buttonY.pressedChangedHandler = nil
-            gamepad.leftShoulder.pressedChangedHandler = nil
-            gamepad.rightShoulder.pressedChangedHandler = nil
-            gamepad.dpad.valueChangedHandler = nil
         }
 
         if let micro = controller.microGamepad {
@@ -268,36 +250,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
         gamepad.leftTrigger.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
             self?.onAction?(.previous)
-        }
-        gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
-        }
-    }
-
-    private func setupGamepad(_ gamepad: GCGamepad) {
-        gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.playPause)
-        }
-        gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.reset)
-        }
-        gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.toggleRecordingPause)
-        }
-        gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.next)
-        }
-        gamepad.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.decreaseSpeed)
-        }
-        gamepad.rightShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.increaseSpeed)
         }
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.handleJoystickInput(Double(xValue), Double(yValue))
