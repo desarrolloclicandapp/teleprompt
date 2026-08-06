@@ -52,6 +52,7 @@ extension TeleprompterView {
                 scrollOffset = min(scrollOffset, max(0, height - viewportHeight))
             }
             .onTapGesture {
+                guard !recorder.isProcessing else { return }
                 showControls = true
             }
             .onReceive(
@@ -75,9 +76,11 @@ extension TeleprompterView {
                 .accessibilityLabel("Panel de controles fijo")
 
             HStack(spacing: 8) {
-                if recorder.isRecording && showCamera {
+                if recorder.isRecording && showCamera && !recorder.isProcessing {
                     Button {
-                        guard recorder.isRecording && showCamera else { return }
+                        guard recorder.isRecording,
+                              showCamera,
+                              !recorder.isProcessing else { return }
                         recorder.togglePauseResume(
                             interfaceOrientation: currentInterfaceOrientation
                         )
@@ -100,6 +103,7 @@ extension TeleprompterView {
                 }
 
                 Button {
+                    guard !recorder.isProcessing else { return }
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
@@ -131,6 +135,7 @@ extension TeleprompterView {
 
                 if showCamera {
                     Button {
+                        guard !recorder.isProcessing else { return }
                         recorder.toggleRecording(
                             interfaceOrientation: currentInterfaceOrientation
                         )
@@ -158,6 +163,7 @@ extension TeleprompterView {
 
             HStack(spacing: 8) {
                 Button {
+                    guard !recorder.isProcessing else { return }
                     showReaderSettings = true
                 } label: {
                     Image(systemName: "textformat.size")
@@ -168,6 +174,7 @@ extension TeleprompterView {
                 .accessibilityLabel("Ajustes del lector")
 
                 Button {
+                    guard !recorder.isProcessing else { return }
                     showControls = false
                 } label: {
                     Image(systemName: "eye.slash")
@@ -235,11 +242,14 @@ extension TeleprompterView {
         .foregroundStyle(.white)
         .background(.black.opacity(0.9))
         .clipped()
+        .disabled(recorder.isProcessing)
     }
 
     var panelDragGesture: some Gesture {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
+                guard !recorder.isProcessing else { return }
+
                 let start = panelDragStart ?? panelCenter
                 panelDragStart = start
                 panelCenter = boundedPanelCenter(
@@ -259,6 +269,8 @@ extension TeleprompterView {
     func resizeGesture(resizeWidth: Bool, resizeHeight: Bool) -> some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
+                guard !recorder.isProcessing else { return }
+
                 let start = resizeStartSize ?? panelSize
                 resizeStartSize = start
 
@@ -318,13 +330,10 @@ extension TeleprompterView {
     var textScrollGesture: some Gesture {
         DragGesture(minimumDistance: 3)
             .onChanged { value in
-                if textDragStartOffset == nil {
-                    cancelCountdown()
-                }
+                guard !recorder.isProcessing else { return }
 
                 let start = textDragStartOffset ?? scrollOffset
                 textDragStartOffset = start
-                isPlaying = false
                 scrollOffset = min(
                     maxScrollOffset,
                     max(0, start - value.translation.height)
