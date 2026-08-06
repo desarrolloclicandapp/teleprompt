@@ -75,33 +75,29 @@ extension TeleprompterView {
                 .accessibilityLabel("Panel de controles fijo")
 
             HStack(spacing: 8) {
-                Button {
-                    if recorder.isRecording && showCamera {
+                if recorder.isRecording && showCamera {
+                    Button {
+                        guard recorder.isRecording && showCamera else { return }
                         recorder.togglePauseResume(
                             interfaceOrientation: currentInterfaceOrientation
                         )
+                    } label: {
+                        Image(
+                            systemName: recorder.isPaused
+                                ? "play.fill"
+                                : "pause.fill"
+                        )
+                        .frame(width: 42, height: 42)
+                        .contentShape(Rectangle())
                     }
-                } label: {
-                    Image(
-                        systemName: recorder.isRecording
-                            ? (recorder.isPaused ? "play.fill" : "pause.fill")
-                            : "pause.circle"
+                    .buttonStyle(.bordered)
+                    .tint(recorder.isPaused ? .green : .yellow)
+                    .accessibilityLabel(
+                        recorder.isPaused
+                            ? "Reanudar grabación"
+                            : "Pausar grabación"
                     )
-                    .frame(width: 42, height: 42)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.bordered)
-                .tint(
-                    showCamera && recorder.isRecording
-                        ? (recorder.isPaused ? .green : .yellow)
-                        : nil
-                )
-                .disabled(!recorder.isRecording)
-                .accessibilityLabel(
-                    recorder.isRecording
-                        ? (recorder.isPaused ? "Reanudar grabación" : "Pausar grabación")
-                        : "Pausar grabación"
-                )
 
                 Button {
                     dismiss()
