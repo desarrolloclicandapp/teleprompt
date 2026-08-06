@@ -43,6 +43,56 @@ final class RemoteKeyView: UIView {
     private var boundKeyboardInput: GCKeyboardInput?
 
     override var canBecomeFirstResponder: Bool { true }
+    override var canResignFirstResponder: Bool { false }
+
+    override var keyCommands: [UIKeyCommand]? {
+        var commands: [UIKeyCommand] = []
+
+        // Official TeleprompterPAD keyboard mapping on iOS:
+        // physical A -> R/U, physical B -> F/H,
+        // physical X -> Y, physical Y -> J.
+        commands += letterCommands("r", action: #selector(handlePlayPauseCommand(_:)))
+        commands += letterCommands("u", action: #selector(handlePlayPauseCommand(_:)))
+        commands += letterCommands("a", action: #selector(handlePlayPauseCommand(_:)))
+
+        commands += letterCommands("f", action: #selector(handleToggleControlsCommand(_:)))
+        commands += letterCommands("h", action: #selector(handleToggleControlsCommand(_:)))
+        commands += letterCommands("b", action: #selector(handleToggleControlsCommand(_:)))
+
+        commands += letterCommands("y", action: #selector(handleRecordingPauseCommand(_:)))
+        commands += letterCommands("x", action: #selector(handleRecordingPauseCommand(_:)))
+
+        commands += letterCommands("j", action: #selector(handleRecordingCommand(_:)))
+
+        // The joystick is a digital keyboard control on iOS. Give these
+        // commands priority over UIKit focus movement.
+        commands.append(
+            priorityCommand(
+                UIKeyCommand.inputLeftArrow,
+                action: #selector(handleDecreaseSpeedCommand(_:))
+            )
+        )
+        commands.append(
+            priorityCommand(
+                UIKeyCommand.inputRightArrow,
+                action: #selector(handleIncreaseSpeedCommand(_:))
+            )
+        )
+        commands.append(
+            priorityCommand(
+                UIKeyCommand.inputUpArrow,
+                action: #selector(handleMoveTextUpCommand(_:))
+            )
+        )
+        commands.append(
+            priorityCommand(
+                UIKeyCommand.inputDownArrow,
+                action: #selector(handleMoveTextDownCommand(_:))
+            )
+        )
+
+        return commands
+    }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
@@ -81,18 +131,19 @@ final class RemoteKeyView: UIView {
         var unhandled: Set<UIPress> = []
 
         for press in presses {
-            guard let code = press.key?.keyCode else {
+            guard let key = press.key else {
                 unhandled.insert(press)
                 continue
             }
 
+            let code = key.keyCode
             if isJoystickKey(code) {
                 guard activeUIKitKeyCodes.insert(code).inserted else { continue }
                 emitKeyboardJoystick()
                 continue
             }
 
-            guard let action = action(for: code) else {
+            guard let action = action(for: key) else {
                 unhandled.insert(press)
                 continue
             }
@@ -120,6 +171,59 @@ final class RemoteKeyView: UIView {
             emitKeyboardJoystick()
         }
         super.pressesCancelled(presses, with: event)
+    }
+
+    private func letterCommands(_ input: String, action: Selector) -> [UIKeyCommand] {
+        [
+            priorityCommand(input, action: action),
+            priorityCommand(input, modifiers: [.shift], action: action)
+        ]
+    }
+
+    private func priorityCommand(
+        _ input: String,
+        modifiers: UIKeyModifierFlags = [],
+        action: Selector
+    ) -> UIKeyCommand {
+        let command = UIKeyCommand(
+            input: input,
+            modifierFlags: modifiers,
+            action: action
+        )
+        command.wantsPriorityOverSystemBehavior = true
+        return command
+    }
+
+    @objc private func handlePlayPauseCommand(_ command: UIKeyCommand) {
+        onAction?(.playPause)
+    }
+
+    @objc private func handleToggleControlsCommand(_ command: UIKeyCommand) {
+        onAction?(.toggleControls)
+    }
+
+    @objc private func handleRecordingPauseCommand(_ command: UIKeyCommand) {
+        onAction?(.toggleRecordingPause)
+    }
+
+    @objc private func handleRecordingCommand(_ command: UIKeyCommand) {
+        onAction?(.toggleRecording)
+    }
+
+    @objc private func handleDecreaseSpeedCommand(_ command: UIKeyCommand) {
+        onAction?(.decreaseSpeed)
+    }
+
+    @objc private func handleIncreaseSpeedCommand(_ command: UIKeyCommand) {
+        onAction?(.increaseSpeed)
+    }
+
+    @objc private func handleMoveTextUpCommand(_ command: UIKeyCommand) {
+        onAction?(.next)
+    }
+
+    @objc private func handleMoveTextDownCommand(_ command: UIKeyCommand) {
+        onAction?(.previous)
     }
 
     private func startKeyboardCaptureIfNeeded() {
@@ -274,30 +378,29 @@ final class RemoteKeyView: UIView {
         onAction?(.joystick(x: x, y: y))
     }
 
-    private func action(for code: UIKeyboardHIDUsage) -> RemoteAction? {
-        switch code {
-        // Literal game-controller keyboard fallbacks.
-        case .keyboardA, .keyboardReturnOrEnter:
-            return .playPause
-        case .keyboardB, .keyboardEscape:
-            return .toggleControls
-        case .keyboardX:
-            return .toggleRecordingPause
+    private func action(for key: UIKey) -> RemoteAction? {
+        let characters = key.charactersIgnoringModifiers.lowercased()
 
-        // Official TeleprompterPAD iOS mapping:
-        // physical A -> R/U or Page Down (fast forward)
-        // physical B -> F/H or Page Up (rewind)
-        // physical X -> Y or Space (play/pause)
-        // physical Y -> J or Home (go to top)
-        case .keyboardR, .keyboardU, .keyboardPageDown:
+        switch characters {
+        case "r", "u", "a":
             return .playPause
-        case .keyboardF, .keyboardH, .keyboardPageUp:
+        case "f", "h", "b":
             return .toggleControls
-        case .keyboardY, .keyboardSpacebar:
+        case "y", "x", " ":
             return .toggleRecordingPause
-        case .keyboardJ, .keyboardHome:
+        case "j":
             return .toggleRecording
+        default:
+            break
+        }
 
+        switch key.keyCode {
+        case .keyboardReturnOrEnter, .keyboardPageDown:
+            return .playPause
+        case .keyboardEscape, .keyboardPageUp:
+            return .toggleControls
+        case .keyboardHome:
+            return .toggleRecording
         default:
             return nil
         }
@@ -305,24 +408,14 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: GCKeyCode) -> RemoteAction? {
         switch code {
-        // Literal game-controller keyboard fallbacks.
-        case .keyA, .returnOrEnter:
+        case .keyR, .keyU, .keyA, .returnOrEnter, .pageDown:
             return .playPause
-        case .keyB, .escape:
+        case .keyF, .keyH, .keyB, .escape, .pageUp:
             return .toggleControls
-        case .keyX:
-            return .toggleRecordingPause
-
-        // Official TeleprompterPAD iOS keyboard mapping.
-        case .keyR, .keyU, .pageDown:
-            return .playPause
-        case .keyF, .keyH, .pageUp:
-            return .toggleControls
-        case .keyY, .spacebar:
+        case .keyY, .keyX, .spacebar:
             return .toggleRecordingPause
         case .keyJ, .home:
             return .toggleRecording
-
         default:
             return nil
         }
