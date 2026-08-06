@@ -64,25 +64,24 @@ extension TeleprompterView {
             }
 
         case .next:
-            scrollOffset = min(
-                maxScrollOffset,
-                scrollOffset + max(80, viewportHeight * 0.18)
-            )
+            // TeleprompterPAD joystick Up: move the script upward in small,
+            // repeatable steps without changing the playback state.
+            let step = max(18, viewportHeight * 0.035)
+            scrollOffset = min(maxScrollOffset, scrollOffset + step)
 
         case .previous:
-            scrollOffset = max(
-                0,
-                scrollOffset - max(80, viewportHeight * 0.18)
-            )
+            // TeleprompterPAD joystick Down: move the script downward.
+            let step = max(18, viewportHeight * 0.035)
+            scrollOffset = max(0, scrollOffset - step)
 
         case .reset:
             resetReader()
 
         case .increaseSpeed:
-            speed = min(maximumSpeed, speed + 5)
+            speed = min(maximumSpeed, speed + 2)
 
         case .decreaseSpeed:
-            speed = max(minimumSpeed, speed - 5)
+            speed = max(minimumSpeed, speed - 2)
 
         case .joystick(let x, let y):
             joystickInput = CGPoint(x: CGFloat(x), y: CGFloat(y))
@@ -119,36 +118,31 @@ extension TeleprompterView {
             return "playPause"
         case .toggleControls:
             return "toggleControls"
-        case .next:
-            return "next"
-        case .previous:
-            return "previous"
         case .reset:
             return "reset"
         case .toggleRecording:
             return "toggleRecording"
         case .toggleRecordingPause:
             return "toggleRecordingPause"
-        case .increaseSpeed:
-            return "increaseSpeed"
-        case .decreaseSpeed:
-            return "decreaseSpeed"
-        case .joystick:
+
+        // Joystick/finger-repeat actions must not be deduplicated. Holding a
+        // direction should continue moving the text or changing its speed.
+        case .next, .previous, .increaseSpeed, .decreaseSpeed, .joystick:
             return nil
         }
     }
 
     func toggleRecordingFromRemote() {
-        guard !recorder.isProcessing else { return }
-
         Task { @MainActor in
+            guard !recorder.isProcessing else { return }
+
             if recorder.isRecording {
                 await recorder.stopRecordingSessionAndWait()
                 return
             }
 
             await recorder.prepare()
-            guard recorder.isReady, !recorder.isProcessing else { return }
+            guard recorder.isReady else { return }
 
             showCamera = true
             recorder.toggleRecording(
@@ -158,7 +152,6 @@ extension TeleprompterView {
     }
 
     func resetReader() {
-        guard !recorder.isProcessing else { return }
         cancelCountdown()
         isPlaying = false
         scrollOffset = 0
@@ -179,7 +172,6 @@ extension TeleprompterView {
     }
 
     func togglePlaybackFromRemote() {
-        guard !recorder.isProcessing else { return }
         cancelCountdown()
 
         if isPlaying {
@@ -194,8 +186,6 @@ extension TeleprompterView {
     }
 
     func togglePlayback() {
-        guard !recorder.isProcessing else { return }
-
         if isPlaying {
             isPlaying = false
             cancelCountdown()
@@ -214,7 +204,6 @@ extension TeleprompterView {
     }
 
     func beginCountdown() {
-        guard !recorder.isProcessing else { return }
         cancelCountdown()
 
         let generation = UUID()
