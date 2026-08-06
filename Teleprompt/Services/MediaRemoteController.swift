@@ -232,19 +232,19 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private func setupExtendedGamepad(_ gamepad: GCExtendedGamepad) {
         gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.playPause)
+            self?.onAction?(.next)
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.decreaseSpeed)
+            self?.onAction?(.previous)
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.toggleRecordingPause)
+            self?.onAction?(.playPause)
         }
         gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.toggleRecording)
+            self?.onAction?(.reset)
         }
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.handleJoystickInput(Double(xValue), Double(yValue))
@@ -260,19 +260,19 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private func setupLegacyGamepad(_ gamepad: GCGamepad) {
         gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.playPause)
+            self?.onAction?(.next)
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.decreaseSpeed)
+            self?.onAction?(.previous)
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.toggleRecordingPause)
+            self?.onAction?(.playPause)
         }
         gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.toggleRecording)
+            self?.onAction?(.reset)
         }
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.handleJoystickInput(Double(xValue), Double(yValue))
@@ -282,11 +282,11 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private func setupMicroGamepad(_ gamepad: GCMicroGamepad) {
         gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.playPause)
+            self?.onAction?(.next)
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed else { return }
-            self?.onAction?(.toggleRecordingPause)
+            self?.onAction?(.playPause)
         }
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.handleJoystickInput(Double(xValue), Double(yValue))
@@ -332,16 +332,16 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
     private struct BluetoothButtonProfileDefinition {
         let playPause: UInt8
         let reset: UInt8
-        let pauseRecording: UInt8
-        let toggleRecording: UInt8
+        let fastForward: UInt8
+        let rewind: UInt8
 
-        var mask: UInt8 { playPause | reset | pauseRecording | toggleRecording }
+        var mask: UInt8 { playPause | reset | fastForward | rewind }
     }
 
     private var buttonProfiles: [BluetoothButtonProfile: BluetoothButtonProfileDefinition] {
         [
-            .standard: .init(playPause: 0x01, reset: 0x02, pauseRecording: 0x04, toggleRecording: 0x08),
-            .shifted: .init(playPause: 0x10, reset: 0x20, pauseRecording: 0x40, toggleRecording: 0x80)
+            .standard: .init(playPause: 0x01, reset: 0x02, fastForward: 0x04, rewind: 0x08),
+            .shifted: .init(playPause: 0x10, reset: 0x20, fastForward: 0x40, rewind: 0x80)
         ]
     }
 
@@ -493,9 +493,9 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         guard let profile = resolvedDynamicProfile ?? resolvedButtonProfile.flatMap({ buttonProfiles[$0] }) else { return }
 
         if (pressed & profile.playPause) != 0 { onAction?(.playPause) }
-        if (pressed & profile.reset) != 0 { onAction?(.decreaseSpeed) }
-        if (pressed & profile.pauseRecording) != 0 { onAction?(.toggleRecordingPause) }
-        if (pressed & profile.toggleRecording) != 0 { onAction?(.toggleRecording) }
+        if (pressed & profile.reset) != 0 { onAction?(.reset) }
+        if (pressed & profile.fastForward) != 0 { onAction?(.next) }
+        if (pressed & profile.rewind) != 0 { onAction?(.previous) }
     }
 
     private func learnButtonProfile(from pressed: UInt8) {
@@ -574,8 +574,8 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         return BluetoothButtonProfileDefinition(
             playPause: bits[0],
             reset: bits[1],
-            pauseRecording: bits[2],
-            toggleRecording: bits[3]
+            fastForward: bits[2],
+            rewind: bits[3]
         )
     }
 

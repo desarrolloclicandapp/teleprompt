@@ -681,15 +681,8 @@ struct TeleprompterView: View {
 
     private func handleRemoteAction(_ action: RemoteAction) {
         switch action {
-        case .toggleRecordingPause:
-            guard showCamera && recorder.isRecording else { return }
-            recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
-        case .toggleRecording:
-            guard showCamera else { return }
-            recorder.toggleRecording(interfaceOrientation: currentInterfaceOrientation)
         case .playPause:
-            guard showCamera && recorder.isRecording else { return }
-            recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
+            togglePlayback()
         case .next:
             scrollOffset = min(maxScrollOffset, scrollOffset + max(180, viewportHeight * 0.38))
         case .previous:
@@ -699,6 +692,9 @@ struct TeleprompterView: View {
         case .decreaseSpeed: speed = max(minimumSpeed, speed - 5)
         case .joystick(let x, let y):
             joystickInput = CGPoint(x: x, y: y)
+        case .toggleRecordingPause,
+             .toggleRecording:
+            break
         }
     }
 

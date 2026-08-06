@@ -40,7 +40,7 @@ final class RemoteKeyView: UIView {
             case .keyboardHome: onAction?(.reset)
             case .keyboardUpArrow: onAction?(.increaseSpeed)
             case .keyboardDownArrow: onAction?(.decreaseSpeed)
-            default: super.pressesBegan(presses, with: event)
+            default: break
             }
         }
     }
