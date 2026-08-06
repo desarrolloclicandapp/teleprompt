@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import UIKit
 
@@ -46,6 +47,10 @@ extension TeleprompterView {
     }
 
     func handleRemoteAction(_ action: RemoteAction) {
+        if shouldIgnoreDuplicate(action) {
+            return
+        }
+
         switch action {
         case .playPause:
             // A: pause/resume text immediately, without a new countdown.
@@ -91,6 +96,44 @@ extension TeleprompterView {
         case .toggleRecording:
             // Y: start a new recording or finalize the current one.
             toggleRecordingFromRemote()
+        }
+    }
+
+    private func shouldIgnoreDuplicate(_ action: RemoteAction) -> Bool {
+        guard let key = discreteActionKey(for: action) else {
+            return false
+        }
+
+        let now = Date()
+        let duplicate = key == lastRemoteActionKey
+            && now.timeIntervalSince(lastRemoteActionAt) < 0.18
+        lastRemoteActionKey = key
+        lastRemoteActionAt = now
+        return duplicate
+    }
+
+    private func discreteActionKey(for action: RemoteAction) -> String? {
+        switch action {
+        case .playPause:
+            return "playPause"
+        case .toggleControls:
+            return "toggleControls"
+        case .next:
+            return "next"
+        case .previous:
+            return "previous"
+        case .reset:
+            return "reset"
+        case .toggleRecording:
+            return "toggleRecording"
+        case .toggleRecordingPause:
+            return "toggleRecordingPause"
+        case .increaseSpeed:
+            return "increaseSpeed"
+        case .decreaseSpeed:
+            return "decreaseSpeed"
+        case .joystick:
+            return nil
         }
     }
 
