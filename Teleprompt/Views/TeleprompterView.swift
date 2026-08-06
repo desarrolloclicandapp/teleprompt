@@ -7,9 +7,10 @@ struct TeleprompterView: View {
 
     @StateObject private var recorder = CameraRecorder()
     @StateObject private var mediaRemote = MediaRemoteController()
+    @State private var joystickInput: CGPoint = .zero
     @State private var isPlaying = false
     @State private var speed: Double = 100
-    @State private var fontSize: Double = 42
+    @State private var fontSize: Double = 26
     @State private var mirrorHorizontal = false
     @State private var mirrorVertical = false
     @State private var scrollOffset: CGFloat = 0
@@ -141,7 +142,11 @@ struct TeleprompterView: View {
         }
         .onDisappear {
             mediaRemote.stop()
-            if recorder.isRecording { recorder.toggleRecording() }
+            joystickInput = .zero
+
+            if recorder.isRecording {
+                recorder.stopRecordingSession()
+            }
             recorder.stopSession()
         }
         .animation(.easeInOut(duration: 0.2), value: showCamera)
@@ -300,7 +305,7 @@ struct TeleprompterView: View {
     }
 
     private func responsiveFontSize(for panelWidth: CGFloat) -> CGFloat {
-        min(82, max(22, fontSize * panelWidth / 380))
+        min(82, max(16, fontSize * panelWidth / 380))
     }
 
     private var controls: some View {
@@ -312,13 +317,21 @@ struct TeleprompterView: View {
                 .accessibilityLabel("Panel de controles fijo")
 
             HStack(spacing: 8) {
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
+                Button {
+                    if showCamera && recorder.isRecording {
+                        recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
+                    } else {
+                        dismiss()
+                    }
+                } label: {
+                    Image(systemName: showCamera ? (recorder.isPaused ? "play.fill" : "pause.fill") : "xmark")
                         .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
-                .accessibilityLabel("Cerrar teleprompter")
+                .tint(showCamera && recorder.isRecording ? (recorder.isPaused ? .green : .yellow) : nil)
+
+                .accessibilityLabel(showCamera ? (recorder.isPaused ? "Reanudar grabación" : "Pausar grabación") : "Cerrar teleprompter")
 
                 Button { resetReader() } label: {
                     Image(systemName: "backward.end.fill")
@@ -334,6 +347,7 @@ struct TeleprompterView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
+                .disabled(showCamera && recorder.isRecording)
                 .accessibilityLabel(showCamera ? "Apagar cámara" : "Encender cámara")
 
                 if showCamera {
@@ -641,7 +655,10 @@ struct TeleprompterView: View {
     }
 
     private func advanceScroll() {
-        guard isPlaying, countdownValue == 0, maxScrollOffset > 0 else { return }
+        guard countdownValue == 0, maxScrollOffset > 0 else { return }
+        let hasManualJoystick = abs(joystickInput.y) > 0.02
+        let canScroll = isPlaying || hasManualJoystick
+        guard canScroll else { return }
         // Keep the perceived reading speed consistent as the text gets larger.
         // The scroll distance is measured in points, so larger line heights need
         // a proportional increase in points per second.
@@ -649,8 +666,15 @@ struct TeleprompterView: View {
             ? responsiveFontSize(for: panelSize.width)
             : CGFloat(fontSize)
         let fontScale = actualFontSize / referenceFontSize
-        let pointsPerSecond = speed * 0.12 * Double(fontScale)
-        scrollOffset = min(maxScrollOffset, scrollOffset + CGFloat(pointsPerSecond / 60.0))
+        let sanitizedX = abs(joystickInput.x) > 0.02 ? joystickInput.x : 0
+        let speedMultiplier = max(0.35, min(2.0, 1 + (sanitizedX * 0.85)))
+        let pointsPerSecond = speed * 0.12 * Double(fontScale) * speedMultiplier
+        let playbackDeltaPerFrame = isPlaying ? pointsPerSecond / 60.0 : 0
+        let joystickDeltaPerFrame = (joystickInput.y * speed * 0.08 * Double(fontScale)) / 60.0
+        scrollOffset = min(
+            maxScrollOffset,
+            scrollOffset + CGFloat(playbackDeltaPerFrame + joystickDeltaPerFrame)
+        )
         if scrollOffset >= maxScrollOffset - 0.5 {
             isPlaying = false
         }
@@ -658,6 +682,9 @@ struct TeleprompterView: View {
 
     private func handleRemoteAction(_ action: RemoteAction) {
         switch action {
+        case .toggleRecordingPause:
+            guard showCamera && recorder.isRecording else { return }
+            recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
         case .playPause: togglePlayback()
         case .next:
             scrollOffset = min(maxScrollOffset, scrollOffset + max(180, viewportHeight * 0.38))
@@ -666,6 +693,8 @@ struct TeleprompterView: View {
         case .reset: resetReader()
         case .increaseSpeed: speed = min(maximumSpeed, speed + 5)
         case .decreaseSpeed: speed = max(minimumSpeed, speed - 5)
+        case .joystick(let x, let y):
+            joystickInput = CGPoint(x: x, y: y)
         }
     }
 
@@ -677,7 +706,7 @@ struct TeleprompterView: View {
 
     private func toggleCamera() {
         if showCamera {
-            if recorder.isRecording { recorder.toggleRecording() }
+
             showCamera = false
             recorder.stopSession()
         } else {
@@ -723,7 +752,7 @@ private struct ReaderSettingsView: View {
                 Section("Texto") {
                     HStack {
                         Text("Tamaño")
-                        Slider(value: $fontSize, in: 22...82, step: 1)
+                        Slider(value: $fontSize, in: 16...82, step: 1)
                         Text("\(Int(fontSize))")
                             .monospacedDigit()
                             .frame(width: 34)
@@ -744,3 +773,4 @@ private struct ReaderSettingsView: View {
         .presentationDetents([.medium])
     }
 }
+

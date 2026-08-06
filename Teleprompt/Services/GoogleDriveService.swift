@@ -148,16 +148,13 @@ actor GoogleDriveService {
         return data
     }
 
+    // Read-only integration by design. Upload API is intentionally disabled.
     func upload(text: String, fileID: String, accessToken: String) async throws {
-        let url = URL(string: "https://www.googleapis.com/upload/drive/v3/files/\(fileID)?uploadType=media")!
-        var request = authorizedRequest(url, accessToken: accessToken)
-        request.httpMethod = "PATCH"
-        request.setValue("text/plain; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        request.httpBody = text.data(using: .utf8)
-        let (_, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        _ = text
+        _ = fileID
+        _ = accessToken
+        throw DriveError.uploadDisabled
     }
-
     func refreshAccessToken(refreshToken: String, clientID: String) async throws -> String {
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
         request.httpMethod = "POST"
@@ -207,6 +204,7 @@ enum DriveError: LocalizedError {
     case notConnected
     case http(Int)
     case invalidText
+    case uploadDisabled
     var errorDescription: String? {
         switch self {
         case .notConnected: return "Conecta Google Drive para elegir una carpeta."
@@ -215,6 +213,7 @@ enum DriveError: LocalizedError {
         case .http(404): return "No se encontró la carpeta de Google Drive. Elige una carpeta nuevamente desde el selector."
         case .http(let code): return "Google Drive respondió con el código \(code)."
         case .invalidText: return "El archivo no contiene texto UTF-8 válido."
+        case .uploadDisabled: return "Google Drive esta en modo solo lectura. Esta app solo descarga scripts y no sube ni modifica archivos."
         }
     }
 }
@@ -224,3 +223,4 @@ private let driveJSONDecoder: JSONDecoder = {
     decoder.dateDecodingStrategy = .iso8601
     return decoder
 }()
+

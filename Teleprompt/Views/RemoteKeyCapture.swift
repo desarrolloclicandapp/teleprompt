@@ -14,7 +14,16 @@ struct RemoteKeyCapture: UIViewRepresentable {
     func updateUIView(_ uiView: RemoteKeyView, context: Context) { uiView.onAction = onAction }
 }
 
-enum RemoteAction { case playPause, next, previous, reset, increaseSpeed, decreaseSpeed }
+enum RemoteAction {
+    case playPause
+    case next
+    case previous
+    case reset
+    case toggleRecordingPause
+    case increaseSpeed
+    case decreaseSpeed
+    case joystick(x: Double, y: Double)
+}
 
 final class RemoteKeyView: UIView {
     var onAction: ((RemoteAction) -> Void)?
@@ -35,4 +44,3 @@ final class RemoteKeyView: UIView {
         }
     }
 }
-

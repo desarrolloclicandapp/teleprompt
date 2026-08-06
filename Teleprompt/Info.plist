@@ -30,6 +30,12 @@
 	<string>Teleprompt necesita el micrófono para grabar tus videos y seguir tu voz.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Teleprompt guarda tus grabaciones en la app Fotos.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.</string>
+	<key>GCSupportsControllerUserInteraction</key>
+	<true/>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Teleprompt usa reconocimiento local para avanzar el guion mientras hablas.</string>
 	<key>UILaunchScreen</key>

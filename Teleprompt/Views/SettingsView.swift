@@ -48,10 +48,6 @@ struct SettingsView: View {
                     Label("Abrir Google Drive", systemImage: "arrow.up.forward.app")
                 }
 
-                Text("El selector usa la cuenta autorizada y evita escribir IDs manualmente.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 Button {
                     Task { await drive.sync(library: library) }
                 } label: {
