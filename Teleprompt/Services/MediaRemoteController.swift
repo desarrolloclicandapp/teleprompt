@@ -541,11 +541,9 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         ]
 
         if raw.count >= 4 {
-            layouts.append(contentsOf: [
-                (1, 2, 3),
-                (3, 1, 2),
-                (0, 2, 3)
-            ])
+            layouts.append((button: 1, x: 2, y: 3))
+            layouts.append((button: 3, x: 1, y: 2))
+            layouts.append((button: 0, x: 2, y: 3))
         }
 
         return layouts.flatMap { layout in
