@@ -39,6 +39,7 @@ jobs:
             -project Teleprompt.xcodeproj \
             -scheme Teleprompt
 
+      # Branch pushes validate the exact RemotePAD head before Codemagic.
       - name: Build for iOS Simulator
         run: |
           xcodebuild build \
