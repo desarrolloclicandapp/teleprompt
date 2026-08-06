@@ -22,6 +22,10 @@ extension TeleprompterView {
                     .frame(width: 1, height: 1)
                     .opacity(0.01)
 
+                RemoteGamepadCapture(onAction: handleRemoteAction)
+                    .frame(width: 1, height: 1)
+                    .opacity(0.01)
+
                 if panelSize != .zero {
                     readerPanel
                         .frame(width: panelSize.width, height: panelSize.height)
@@ -91,13 +95,8 @@ extension TeleprompterView {
                 await recorder.prepare()
             }
         }
-        .onAppear {
-            mediaRemote.onAction = handleRemoteAction
-            mediaRemote.start()
-        }
         .onDisappear {
             cancelCountdown()
-            mediaRemote.stop()
             joystickInput = .zero
 
             Task {
