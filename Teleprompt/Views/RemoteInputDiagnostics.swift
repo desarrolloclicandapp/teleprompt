@@ -31,6 +31,33 @@ final class RemoteInputDiagnostics: ObservableObject {
     }
 }
 
+extension RemoteAction {
+    var diagnosticsName: String {
+        switch self {
+        case .playPause:
+            return "playPause"
+        case .toggleControls:
+            return "toggleControls"
+        case .next:
+            return "next"
+        case .previous:
+            return "previous"
+        case .reset:
+            return "reset"
+        case .toggleRecording:
+            return "toggleRecording"
+        case .toggleRecordingPause:
+            return "toggleRecordingPause"
+        case .increaseSpeed:
+            return "increaseSpeed"
+        case .decreaseSpeed:
+            return "decreaseSpeed"
+        case .joystick(let x, let y):
+            return String(format: "joystick x=%.3f y=%.3f", x, y)
+        }
+    }
+}
+
 struct RemoteInputDiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var diagnostics = RemoteInputDiagnostics.shared
@@ -38,11 +65,15 @@ struct RemoteInputDiagnosticsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(diagnostics.entries.isEmpty ? "Aún no hay eventos. Pulsa A, B, X, Y y mueve el joystick." : diagnostics.text)
-                    .font(.system(.caption2, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .padding()
+                Text(
+                    diagnostics.entries.isEmpty
+                        ? "Aún no hay eventos. Pulsa A, B, X, Y y mueve el joystick."
+                        : diagnostics.text
+                )
+                .font(.system(.caption2, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .padding()
             }
             .navigationTitle("RemotePAD RAW")
             .toolbar {
