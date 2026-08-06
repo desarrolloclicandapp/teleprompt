@@ -1,3 +1,4 @@
+import Combine
 import CoreBluetooth
 import GameController
 import MediaPlayer
@@ -15,7 +16,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private let center = MPRemoteCommandCenter.shared()
     private let bluetoothFallback = BluetoothGamepadFallbackController()
 
-    private var registered = false
     private var registrations: [(MPRemoteCommand, Any)] = []
     private var connectObserver: NSObjectProtocol?
     private var disconnectObserver: NSObjectProtocol?
@@ -28,66 +28,10 @@ final class MediaRemoteController: NSObject, ObservableObject {
         guard !isRunning else { return }
         isRunning = true
 
-        guard !registered else { return }
-        registered = true
-        center.playCommand.isEnabled = true
-        center.pauseCommand.isEnabled = true
-        center.togglePlayPauseCommand.isEnabled = true
-        center.nextTrackCommand.isEnabled = true
-        center.previousTrackCommand.isEnabled = true
-        center.skipForwardCommand.isEnabled = true
-        center.skipBackwardCommand.isEnabled = true
-        center.seekForwardCommand.isEnabled = true
-        center.seekBackwardCommand.isEnabled = true
-        center.changePlaybackRateCommand.isEnabled = true
-        center.stopCommand.isEnabled = true
-        registrations = [
-            (center.playCommand, center.playCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
-            (center.pauseCommand, center.pauseCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
-            (center.togglePlayPauseCommand, center.togglePlayPauseCommand.addTarget { [weak self] _ in self?.onAction?(.playPause); return .success }),
-            (center.nextTrackCommand, center.nextTrackCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
-            (center.previousTrackCommand, center.previousTrackCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
-            (center.skipForwardCommand, center.skipForwardCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
-            (center.skipBackwardCommand, center.skipBackwardCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
-            (center.seekForwardCommand, center.seekForwardCommand.addTarget { [weak self] _ in self?.onAction?(.next); return .success }),
-            (center.seekBackwardCommand, center.seekBackwardCommand.addTarget { [weak self] _ in self?.onAction?(.previous); return .success }),
-            (center.changePlaybackRateCommand, center.changePlaybackRateCommand.addTarget { [weak self] _ in
-                self?.onAction?(.playPause)
-                return .success
-            }),
-            (center.stopCommand, center.stopCommand.addTarget { [weak self] _ in
-                self?.onAction?(.reset)
-                return .success
-            })
-        ]
-
-        connectObserver = NotificationCenter.default.addObserver(
-            forName: .GCControllerDidConnect,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let controller = notification.object as? GCController else { return }
-            Task { @MainActor in
-                self.bindNativeController(controller)
-            }
-        }
-
-        disconnectObserver = NotificationCenter.default.addObserver(
-            forName: .GCControllerDidDisconnect,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self,
-                  let controller = notification.object as? GCController else { return }
-            Task { @MainActor in
-                self.unbindNativeController(controller)
-            }
-        }
-
+        registerMediaCommands()
+        registerControllerObservers()
         startGameControllerDiscovery()
         refreshGameControllers()
-        updateActiveSource()
     }
 
     func stop() {
@@ -106,12 +50,58 @@ final class MediaRemoteController: NSObject, ObservableObject {
 
         stopGameControllerDiscovery()
         bluetoothFallback.stop()
-        onAction?(.joystick(x: 0, y: 0))
+        emit(.joystick(x: 0, y: 0))
+        unregisterMediaCommands()
+        activeSource = .mediaRemote
+    }
 
+    private func registerMediaCommands() {
+        guard registrations.isEmpty else { return }
+
+        center.playCommand.isEnabled = true
+        center.pauseCommand.isEnabled = true
+        center.togglePlayPauseCommand.isEnabled = true
+        center.nextTrackCommand.isEnabled = true
+        center.previousTrackCommand.isEnabled = true
+        center.skipForwardCommand.isEnabled = true
+        center.skipBackwardCommand.isEnabled = true
+        center.seekForwardCommand.isEnabled = true
+        center.seekBackwardCommand.isEnabled = true
+        center.stopCommand.isEnabled = true
+
+        registrations = [
+            register(center.playCommand, action: .playPause),
+            register(center.pauseCommand, action: .playPause),
+            register(center.togglePlayPauseCommand, action: .playPause),
+
+            // Some teleprompter remotes expose their extra buttons as media
+            // commands instead of a native game controller or BLE keyboard.
+            register(center.nextTrackCommand, action: .toggleControls),
+            register(center.skipForwardCommand, action: .toggleControls),
+            register(center.seekForwardCommand, action: .toggleControls),
+            register(center.previousTrackCommand, action: .toggleRecordingPause),
+            register(center.skipBackwardCommand, action: .toggleRecordingPause),
+            register(center.seekBackwardCommand, action: .toggleRecordingPause),
+            register(center.stopCommand, action: .toggleRecording)
+        ]
+    }
+
+    private func register(_ command: MPRemoteCommand, action: RemoteAction) -> (MPRemoteCommand, Any) {
+        let target = command.addTarget { [weak self] _ in
+            Task { @MainActor in
+                self?.emit(action)
+            }
+            return .success
+        }
+        return (command, target)
+    }
+
+    private func unregisterMediaCommands() {
         for (command, target) in registrations {
             command.removeTarget(target)
         }
         registrations.removeAll()
+
         center.playCommand.isEnabled = false
         center.pauseCommand.isEnabled = false
         center.togglePlayPauseCommand.isEnabled = false
@@ -121,22 +111,46 @@ final class MediaRemoteController: NSObject, ObservableObject {
         center.skipBackwardCommand.isEnabled = false
         center.seekForwardCommand.isEnabled = false
         center.seekBackwardCommand.isEnabled = false
-        center.changePlaybackRateCommand.isEnabled = false
         center.stopCommand.isEnabled = false
-        registered = false
-        activeSource = .mediaRemote
+    }
+
+    private func registerControllerObservers() {
+        guard connectObserver == nil, disconnectObserver == nil else { return }
+
+        connectObserver = NotificationCenter.default.addObserver(
+            forName: .GCControllerDidConnect,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let controller = notification.object as? GCController else { return }
+            Task { @MainActor in
+                self?.bindNativeController(controller)
+            }
+        }
+
+        disconnectObserver = NotificationCenter.default.addObserver(
+            forName: .GCControllerDidDisconnect,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let controller = notification.object as? GCController else { return }
+            Task { @MainActor in
+                self?.unbindNativeController(controller)
+            }
+        }
     }
 
     private func startGameControllerDiscovery() {
         guard !nativeDiscoveryStarted else { return }
         nativeDiscoveryStarted = true
+
         bluetoothFallback.onAction = { [weak self] action in
-            guard let self else { return }
             Task { @MainActor in
-                guard self.activeSource != .gameController else { return }
-                self.onAction?(action)
+                guard let self, self.activeSource != .gameController else { return }
+                self.emit(action)
             }
         }
+
         GCController.startWirelessControllerDiscovery { [weak self] in
             Task { @MainActor in
                 self?.refreshGameControllers()
@@ -149,8 +163,8 @@ final class MediaRemoteController: NSObject, ObservableObject {
             GCController.stopWirelessControllerDiscovery()
             nativeDiscoveryStarted = false
         }
-        let controllers = GCController.controllers()
-        for controller in controllers {
+
+        for controller in GCController.controllers() {
             unbindNativeController(controller)
         }
         gameControllerConnected = false
@@ -159,20 +173,16 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private func refreshGameControllers() {
         let controllers = GCController.controllers()
         gameControllerConnected = !controllers.isEmpty
+
         for controller in controllers {
             bindNativeController(controller)
         }
+
         updateActiveSource()
     }
 
     private func updateActiveSource() {
         guard isRunning else { return }
-        if !gameControllerConnected {
-            onAction?(.joystick(x: 0, y: 0))
-            activeSource = .bluetoothFallback
-            bluetoothFallback.start()
-            return
-        }
 
         gameControllerConnected = !GCController.controllers().isEmpty
         if gameControllerConnected {
@@ -180,6 +190,7 @@ final class MediaRemoteController: NSObject, ObservableObject {
             bluetoothFallback.stop()
         } else {
             activeSource = .bluetoothFallback
+            emit(.joystick(x: 0, y: 0))
             bluetoothFallback.start()
         }
     }
@@ -187,24 +198,24 @@ final class MediaRemoteController: NSObject, ObservableObject {
     private func bindNativeController(_ controller: GCController) {
         if let extended = controller.extendedGamepad {
             setupExtendedGamepad(extended)
-            activeSource = .gameController
             gameControllerConnected = true
+            activeSource = .gameController
             bluetoothFallback.stop()
             return
         }
 
         if let micro = controller.microGamepad {
             setupMicroGamepad(micro)
-            activeSource = .gameController
             gameControllerConnected = true
+            activeSource = .gameController
             bluetoothFallback.stop()
             return
         }
 
-        if let gamepad = controller.physicalInputProfile as? GCGamepad {
-            setupLegacyGamepad(gamepad)
-            activeSource = .gameController
+        if let legacy = controller.physicalInputProfile as? GCGamepad {
+            setupLegacyGamepad(legacy)
             gameControllerConnected = true
+            activeSource = .gameController
             bluetoothFallback.stop()
             return
         }
@@ -214,158 +225,128 @@ final class MediaRemoteController: NSObject, ObservableObject {
 
     private func unbindNativeController(_ controller: GCController) {
         if let extended = controller.extendedGamepad {
-            extended.valueChangedHandler = nil
             extended.leftThumbstick.valueChangedHandler = nil
             extended.rightThumbstick.valueChangedHandler = nil
+            extended.dpad.valueChangedHandler = nil
             extended.buttonA.pressedChangedHandler = nil
             extended.buttonB.pressedChangedHandler = nil
             extended.buttonX.pressedChangedHandler = nil
             extended.buttonY.pressedChangedHandler = nil
-            extended.dpad.valueChangedHandler = nil
         }
 
         if let micro = controller.microGamepad {
-            micro.valueChangedHandler = nil
+            micro.dpad.valueChangedHandler = nil
             micro.buttonA.pressedChangedHandler = nil
             micro.buttonX.pressedChangedHandler = nil
-            micro.dpad.valueChangedHandler = nil
         }
 
-        if let gamepad = controller.physicalInputProfile as? GCGamepad {
-            gamepad.buttonA.pressedChangedHandler = nil
-            gamepad.buttonB.pressedChangedHandler = nil
-            gamepad.buttonX.pressedChangedHandler = nil
-            gamepad.buttonY.pressedChangedHandler = nil
-            gamepad.dpad.valueChangedHandler = nil
+        if let legacy = controller.physicalInputProfile as? GCGamepad {
+            legacy.dpad.valueChangedHandler = nil
+            legacy.buttonA.pressedChangedHandler = nil
+            legacy.buttonB.pressedChangedHandler = nil
+            legacy.buttonX.pressedChangedHandler = nil
+            legacy.buttonY.pressedChangedHandler = nil
         }
 
-        if GCController.controllers().isEmpty {
-            gameControllerConnected = false
-            activeSource = .mediaRemote
-            onAction?(.joystick(x: 0, y: 0))
-            if isRunning { bluetoothFallback.start() }
-        }
+        emit(.joystick(x: 0, y: 0))
+        updateActiveSource()
     }
 
     private func setupExtendedGamepad(_ gamepad: GCExtendedGamepad) {
-        gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.next)
-        }
-        gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.previous)
-        }
-        gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.playPause)
-        }
-        gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.reset)
-        }
+        bindButton(gamepad.buttonA, action: .playPause)
+        bindButton(gamepad.buttonB, action: .toggleControls)
+        bindButton(gamepad.buttonX, action: .toggleRecordingPause)
+        bindButton(gamepad.buttonY, action: .toggleRecording)
+
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
+            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
+            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
+            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
     }
 
     private func setupLegacyGamepad(_ gamepad: GCGamepad) {
-        gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.next)
-        }
-        gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.previous)
-        }
-        gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.playPause)
-        }
-        gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.reset)
-        }
+        bindButton(gamepad.buttonA, action: .playPause)
+        bindButton(gamepad.buttonB, action: .toggleControls)
+        bindButton(gamepad.buttonX, action: .toggleRecordingPause)
+        bindButton(gamepad.buttonY, action: .toggleRecording)
+
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
+            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
     }
 
     private func setupMicroGamepad(_ gamepad: GCMicroGamepad) {
-        gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.next)
-        }
-        gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed else { return }
-            self?.onAction?(.playPause)
-        }
+        bindButton(gamepad.buttonA, action: .playPause)
+        bindButton(gamepad.buttonX, action: .toggleRecordingPause)
+
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.handleJoystickInput(Double(xValue), Double(yValue))
+            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
     }
 
-    private func handleJoystickInput(_ rawX: Double, _ rawY: Double) {
-        guard activeSource == .gameController else { return }
-        let deadZone = 0.08
-        let x = abs(rawX) > deadZone ? rawX : 0
-        let y = abs(rawY) > deadZone ? rawY : 0
-        onAction?(.joystick(x: x, y: y))
+    private func bindButton(_ button: GCControllerButtonInput, action: RemoteAction) {
+        button.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard pressed else { return }
+            Task { @MainActor in
+                self?.emit(action)
+            }
+        }
+    }
+
+    private nonisolated func emitJoystick(x rawX: Double, y rawY: Double) {
+        Task { @MainActor [weak self] in
+            guard let self, self.activeSource == .gameController else { return }
+            let deadZone = 0.12
+            let x = abs(rawX) > deadZone ? rawX : 0
+            let y = abs(rawY) > deadZone ? rawY : 0
+            self.emit(.joystick(x: x, y: y))
+        }
+    }
+
+    private func emit(_ action: RemoteAction) {
+        onAction?(action)
     }
 }
 
 private final class BluetoothGamepadFallbackController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var onAction: ((RemoteAction) -> Void)?
 
-    private let serviceUUID = CBUUID(string: "1812")
+    private let hidServiceUUID = CBUUID(string: "1812")
     private let reportUUID = CBUUID(string: "2A4D")
-    private let joystickDeadZone = 0.08
-    private let buttonProfileMinimumSamples = 3
-    private let buttonProfileMaximumSamples = 5
-    private let buttonProfileConfidenceMargin = 2
+    private let joystickDeadZone = 0.12
+
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
-    private var reportCharacteristic: CBCharacteristic?
     private var shouldRun = false
     private var isScanning = false
     private var lastButtons: UInt8 = 0
-    private var shouldRetry = true
-    private var resolvedButtonProfile: BluetoothButtonProfile?
-    private var resolvedDynamicProfile: BluetoothButtonProfileDefinition?
-    private var buttonProfileConfidence: [BluetoothButtonProfile: Int] = [.standard: 0, .shifted: 0]
-    private var buttonProfileSampleCount = 0
-    private var buttonBitFrequency: [UInt8: Int] = [:]
-    private var learnedButtonOrder: [UInt8] = []
+    private var lastX = 0.0
+    private var lastY = 0.0
+    private var parserConfiguration: ParserConfiguration?
 
-    private enum BluetoothButtonProfile: Int, CaseIterable {
-        case standard
-        case shifted
+    private enum AxisEncoding: CaseIterable, Hashable {
+        case unsignedCentered
+        case signed
     }
 
-    private struct BluetoothButtonProfileDefinition {
-        let playPause: UInt8
-        let reset: UInt8
-        let fastForward: UInt8
-        let rewind: UInt8
-
-        var mask: UInt8 { playPause | reset | fastForward | rewind }
+    private struct ParserConfiguration: Hashable {
+        let buttonIndex: Int
+        let xIndex: Int
+        let yIndex: Int
+        let encoding: AxisEncoding
     }
 
-    private var buttonProfiles: [BluetoothButtonProfile: BluetoothButtonProfileDefinition] {
-        [
-            .standard: .init(playPause: 0x01, reset: 0x02, fastForward: 0x04, rewind: 0x08),
-            .shifted: .init(playPause: 0x10, reset: 0x20, fastForward: 0x40, rewind: 0x80)
-        ]
-    }
-
-    var running: Bool {
-        shouldRun
+    private struct ParsedReport {
+        let x: Double
+        let y: Double
+        let buttons: UInt8
+        let configuration: ParserConfiguration
+        let score: Double
     }
 
     override init() {
@@ -376,125 +357,157 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
     func start() {
         shouldRun = true
         guard let central else { return }
-        if central.state == .poweredOn {
-            startScan()
-        } else {
-            shouldRetry = true
-        }
+
+        guard central.state == .poweredOn else { return }
+        connectKnownPeripheralOrScan(using: central)
     }
 
     func stop() {
         shouldRun = false
-        shouldRetry = false
         stopScan()
+
         if let peripheral {
             central?.cancelPeripheralConnection(peripheral)
         }
-        reportCharacteristic = nil
+
         self.peripheral = nil
-        lastButtons = 0
-        resolvedButtonProfile = nil
-        resolvedDynamicProfile = nil
-        buttonProfileConfidence = [.standard: 0, .shifted: 0]
-        buttonProfileSampleCount = 0
-        learnedButtonOrder.removeAll()
-        buttonBitFrequency.removeAll()
-        onAction?(.joystick(x: 0, y: 0))
-    }
-
-    private func startScan() {
-        guard shouldRun else { return }
-        guard !isScanning else { return }
-        isScanning = true
-        central?.scanForPeripherals(withServices: [serviceUUID], options: nil)
-    }
-
-    private func stopScan() {
-        isScanning = false
-        central?.stopScan()
+        resetInputState()
     }
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         guard shouldRun else { return }
-        if central.state == .poweredOn && shouldRetry {
-            startScan()
+
+        if central.state == .poweredOn {
+            connectKnownPeripheralOrScan(using: central)
         } else {
             stopScan()
+            peripheral = nil
+            resetInputState()
         }
+    }
+
+    private func connectKnownPeripheralOrScan(using central: CBCentralManager) {
+        if let connected = central.retrieveConnectedPeripherals(withServices: [hidServiceUUID]).first {
+            attach(to: connected)
+            if connected.state == .connected {
+                connected.discoverServices([hidServiceUUID])
+            } else {
+                central.connect(connected, options: nil)
+            }
+            return
+        }
+
+        startScan()
+    }
+
+    private func startScan() {
+        guard shouldRun, !isScanning else { return }
+        isScanning = true
+        central?.scanForPeripherals(
+            withServices: [hidServiceUUID],
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+        )
+    }
+
+    private func stopScan() {
+        guard isScanning else { return }
+        isScanning = false
+        central?.stopScan()
+    }
+
+    private func attach(to peripheral: CBPeripheral) {
+        stopScan()
+        self.peripheral = peripheral
+        peripheral.delegate = self
     }
 
     func centralManager(
         _ central: CBCentralManager,
         didDiscover peripheral: CBPeripheral,
-        advertisementData: [String : Any],
+        advertisementData: [String: Any],
         rssi RSSI: NSNumber
     ) {
         guard shouldRun else { return }
-        stopScan()
-        self.peripheral = peripheral
-        peripheral.delegate = self
+        attach(to: peripheral)
         central.connect(peripheral, options: nil)
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([serviceUUID])
+        guard shouldRun else { return }
+        attach(to: peripheral)
+        peripheral.discoverServices([hidServiceUUID])
     }
 
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+    func centralManager(
+        _ central: CBCentralManager,
+        didFailToConnect peripheral: CBPeripheral,
+        error: Error?
+    ) {
         guard shouldRun else { return }
-        if let connectedPeripheral = self.peripheral, connectedPeripheral.identifier == peripheral.identifier {
-            reportCharacteristic = nil
+        self.peripheral = nil
+        resetInputState()
+        startScan()
+    }
+
+    func centralManager(
+        _ central: CBCentralManager,
+        didDisconnectPeripheral peripheral: CBPeripheral,
+        error: Error?
+    ) {
+        guard shouldRun else { return }
+
+        if self.peripheral?.identifier == peripheral.identifier {
             self.peripheral = nil
-            lastButtons = 0
-            resolvedButtonProfile = nil
-            resolvedDynamicProfile = nil
-            buttonProfileConfidence = [.standard: 0, .shifted: 0]
-            buttonProfileSampleCount = 0
-            learnedButtonOrder.removeAll()
-            buttonBitFrequency.removeAll()
-            onAction?(.joystick(x: 0, y: 0))
+            resetInputState()
         }
-        if shouldRun {
-            startScan()
-        }
+        startScan()
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard shouldRun, error == nil else { return }
-        guard let services = peripheral.services else { return }
-        for service in services where service.uuid == serviceUUID {
+
+        for service in peripheral.services ?? [] where service.uuid == hidServiceUUID {
             peripheral.discoverCharacteristics([reportUUID], for: service)
         }
     }
 
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard shouldRun, error == nil else { return }
-        guard service.uuid == serviceUUID else { return }
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didDiscoverCharacteristicsFor service: CBService,
+        error: Error?
+    ) {
+        guard shouldRun, error == nil, service.uuid == hidServiceUUID else { return }
 
         for characteristic in service.characteristics ?? [] where characteristic.uuid == reportUUID {
-            reportCharacteristic = characteristic
-            if characteristic.properties.contains(.notify) {
+            if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
-            peripheral.readValue(for: characteristic)
+            if characteristic.properties.contains(.read) {
+                peripheral.readValue(for: characteristic)
+            }
         }
     }
 
-    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard shouldRun, error == nil else { return }
-        guard characteristic.uuid == reportUUID else { return }
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didUpdateValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        guard shouldRun, error == nil, characteristic.uuid == reportUUID else { return }
         guard let data = characteristic.value else { return }
-        parseAndEmit(data: data)
+        parseAndEmit(data)
     }
 
-    private func parseAndEmit(data: Data) {
+    private func parseAndEmit(_ data: Data) {
         let raw = [UInt8](data)
         guard raw.count >= 3 else { return }
-        guard let parsed = bestParsedReport(from: raw) else { return }
+        guard let parsed = parseBestReport(raw) else { return }
 
-        let deadzone = joystickDeadZone
-        let x = abs(parsed.x) > deadzone ? parsed.x : 0
-        let y = abs(parsed.y) > deadzone ? parsed.y : 0
+        // HID axes normally grow downward on Y. GameController grows upward,
+        // so invert Y here to present one consistent contract to the view.
+        let x = abs(parsed.x) > joystickDeadZone ? parsed.x : 0
+        let normalizedY = -parsed.y
+        let y = abs(normalizedY) > joystickDeadZone ? normalizedY : 0
         onAction?(.joystick(x: x, y: y))
 
         let changed = parsed.buttons ^ lastButtons
@@ -502,242 +515,130 @@ private final class BluetoothGamepadFallbackController: NSObject, CBCentralManag
         emitButtonActions(pressed)
 
         lastButtons = parsed.buttons
+        lastX = parsed.x
+        lastY = parsed.y
+    }
+
+    private func parseBestReport(_ raw: [UInt8]) -> ParsedReport? {
+        if let parserConfiguration,
+           let parsed = parse(raw, using: parserConfiguration, includeScore: false) {
+            return parsed
+        }
+
+        let candidates = parserCandidates(for: raw)
+            .compactMap { parse(raw, using: $0, includeScore: true) }
+
+        guard let best = candidates.max(by: { $0.score < $1.score }) else { return nil }
+        parserConfiguration = best.configuration
+        return best
+    }
+
+    private func parserCandidates(for raw: [UInt8]) -> [ParserConfiguration] {
+        var layouts: [(button: Int, x: Int, y: Int)] = [
+            (0, 1, 2),
+            (2, 0, 1)
+        ]
+
+        if raw.count >= 4 {
+            layouts.append(contentsOf: [
+                (1, 2, 3),
+                (3, 1, 2),
+                (0, 2, 3)
+            ])
+        }
+
+        return layouts.flatMap { layout in
+            AxisEncoding.allCases.map {
+                ParserConfiguration(
+                    buttonIndex: layout.button,
+                    xIndex: layout.x,
+                    yIndex: layout.y,
+                    encoding: $0
+                )
+            }
+        }
+    }
+
+    private func parse(
+        _ raw: [UInt8],
+        using configuration: ParserConfiguration,
+        includeScore: Bool
+    ) -> ParsedReport? {
+        let highestIndex = max(configuration.buttonIndex, max(configuration.xIndex, configuration.yIndex))
+        guard highestIndex < raw.count else { return nil }
+
+        let buttons = raw[configuration.buttonIndex]
+        guard isLikelyButtonByte(buttons) else { return nil }
+
+        let x = normalize(raw[configuration.xIndex], encoding: configuration.encoding)
+        let y = normalize(raw[configuration.yIndex], encoding: configuration.encoding)
+
+        let score: Double
+        if includeScore {
+            let buttonChanges = (buttons ^ lastButtons).nonzeroBitCount
+            let buttonContinuity = buttonChanges <= 2 ? 2.0 : -Double(buttonChanges)
+            let neutralOrContinuity: Double
+
+            if parserConfiguration == nil {
+                neutralOrContinuity = 4.0 - abs(x) - abs(y)
+            } else {
+                neutralOrContinuity = 4.0 - abs(x - lastX) - abs(y - lastY)
+            }
+
+            let conventionalLayoutBonus = configuration.buttonIndex <= 1 ? 0.4 : 0
+            score = buttonContinuity + neutralOrContinuity + conventionalLayoutBonus
+        } else {
+            score = 0
+        }
+
+        return ParsedReport(
+            x: x,
+            y: y,
+            buttons: buttons,
+            configuration: configuration,
+            score: score
+        )
+    }
+
+    private func normalize(_ byte: UInt8, encoding: AxisEncoding) -> Double {
+        let value: Double
+        switch encoding {
+        case .unsignedCentered:
+            value = (Double(byte) - 128.0) / 127.0
+        case .signed:
+            value = Double(Int8(bitPattern: byte)) / 127.0
+        }
+        return max(-1, min(1, value))
+    }
+
+    private func isLikelyButtonByte(_ value: UInt8) -> Bool {
+        value == 0 || value.nonzeroBitCount <= 4
     }
 
     private func emitButtonActions(_ pressed: UInt8) {
         guard pressed != 0 else { return }
 
-        if resolvedButtonProfile == nil && resolvedDynamicProfile == nil {
-            learnButtonProfile(from: pressed)
+        // Most compact teleprompter pads expose A/B/X/Y either in the low
+        // nibble or shifted into the high nibble. Support both deterministically.
+        if (pressed & 0x01) != 0 || (pressed & 0x10) != 0 {
+            onAction?(.playPause)
         }
-
-        guard let profile = resolvedDynamicProfile ?? resolvedButtonProfile.flatMap({ buttonProfiles[$0] }) else {
-            emitFallbackButtonActions(pressed)
-            return
+        if (pressed & 0x02) != 0 || (pressed & 0x20) != 0 {
+            onAction?(.toggleControls)
         }
-
-        if (pressed & profile.playPause) != 0 { onAction?(.playPause) }
-        if (pressed & profile.reset) != 0 { onAction?(.reset) }
-        if (pressed & profile.fastForward) != 0 { onAction?(.next) }
-        if (pressed & profile.rewind) != 0 { onAction?(.previous) }
-    }
-
-    private func emitFallbackButtonActions(_ pressed: UInt8) {
-        guard !learnedButtonOrder.isEmpty else { return }
-
-        for bit in [UInt8](0..<8).map({ UInt8(1 << $0) }) {
-            if (pressed & bit) == 0 { continue }
-            guard let action = fallbackAction(for: bit) else { continue }
-            onAction?(action)
+        if (pressed & 0x04) != 0 || (pressed & 0x40) != 0 {
+            onAction?(.toggleRecordingPause)
+        }
+        if (pressed & 0x08) != 0 || (pressed & 0x80) != 0 {
+            onAction?(.toggleRecording)
         }
     }
 
-    private func fallbackAction(for pressedBit: UInt8) -> RemoteAction? {
-        guard let position = learnedButtonOrder.firstIndex(of: pressedBit) else { return nil }
-
-        switch position {
-        case 0:
-            return .playPause
-        case 1:
-            return .toggleRecording
-        case 2:
-            return .next
-        case 3:
-            return .previous
-        default:
-            return nil
-        }
-    }
-
-    private func learnButtonProfile(from pressed: UInt8) {
-        guard pressed != 0 else { return }
-        guard isLikelyButtonByte(pressed) else { return }
-
-        for bit in 0..<8 {
-            let mask: UInt8 = UInt8(1 << bit)
-            if (pressed & mask) != 0 {
-                buttonBitFrequency[mask, default: 0] += 1
-                if !learnedButtonOrder.contains(mask) && learnedButtonOrder.count < 4 {
-                    learnedButtonOrder.append(mask)
-                }
-            }
-        }
-
-        buttonProfileSampleCount += 1
-        for profile in BluetoothButtonProfile.allCases {
-            if let definition = buttonProfiles[profile] {
-                let score = buttonProfileScore(definition, pressed: pressed)
-                buttonProfileConfidence[profile, default: 0] += score
-            }
-        }
-
-        if let resolvedProfile = resolvedStaticButtonProfile() {
-            resolvedButtonProfile = resolvedProfile
-            resolvedDynamicProfile = nil
-            return
-        }
-
-        if buttonProfileSampleCount >= buttonProfileMaximumSamples {
-            if let orderProfile = resolveDynamicProfileFromObservedOrder() {
-                resolvedDynamicProfile = orderProfile
-                resolvedButtonProfile = nil
-                return
-            }
-
-            if let fallback = deriveDynamicButtonProfile() {
-                resolvedDynamicProfile = fallback
-                resolvedButtonProfile = nil
-            } else if let fallback = resolvedStaticFallbackProfile() {
-                resolvedButtonProfile = fallback
-                resolvedDynamicProfile = nil
-            }
-        }
-    }
-
-    private func buttonProfileScore(_ profile: BluetoothButtonProfileDefinition, pressed: UInt8) -> Int {
-        let matchingBits = pressed & profile.mask
-        let unexpectedBits = pressed & ~profile.mask
-        let score = Int(matchingBits.nonzeroBitCount * 3 - unexpectedBits.nonzeroBitCount)
-        return max(0, score)
-    }
-
-    private func resolvedStaticButtonProfile() -> BluetoothButtonProfile? {
-        if buttonProfileSampleCount < buttonProfileMinimumSamples { return nil }
-
-        let ordered = buttonProfileConfidence
-            .sorted { left, right in
-                if left.value != right.value { return left.value > right.value }
-                return left.key.rawValue < right.key.rawValue
-            }
-
-        guard let primary = ordered.first else { return nil }
-        let secondary = ordered.dropFirst().first?.value ?? Int.min
-
-        if primary.value <= 0 { return nil }
-        if buttonProfileSampleCount >= buttonProfileMaximumSamples { return primary.key }
-
-        if primary.value >= secondary + buttonProfileConfidenceMargin {
-            return primary.key
-        }
-        return nil
-    }
-
-    private func deriveDynamicButtonProfile() -> BluetoothButtonProfileDefinition? {
-        let sortedBits = buttonBitFrequency
-            .filter { $0.value > 0 }
-            .sorted { lhs, rhs in
-                if lhs.value != rhs.value { return lhs.value > rhs.value }
-                return lhs.key < rhs.key
-            }
-
-        guard sortedBits.count >= 4 else { return nil }
-        let bits = sortedBits.prefix(4).map(\.key)
-        return BluetoothButtonProfileDefinition(
-            playPause: bits[0],
-            reset: bits[1],
-            fastForward: bits[2],
-            rewind: bits[3]
-        )
-    }
-
-    private func resolveDynamicProfileFromObservedOrder() -> BluetoothButtonProfileDefinition? {
-        guard learnedButtonOrder.count >= 4 else { return nil }
-        return BluetoothButtonProfileDefinition(
-            playPause: learnedButtonOrder[0],
-            reset: learnedButtonOrder[1],
-            fastForward: learnedButtonOrder[2],
-            rewind: learnedButtonOrder[3]
-        )
-    }
-
-    private func resolvedStaticFallbackProfile() -> BluetoothButtonProfile? {
-        let ordered = buttonProfileConfidence
-            .sorted { left, right in
-                if left.value != right.value { return left.value > right.value }
-                return left.key.rawValue < right.key.rawValue
-            }
-
-        return ordered.first?.value ?? 0 > 0 ? ordered.first?.key : nil
-    }
-
-    private func parseReport(buttonByte: UInt8, xByte: UInt8, yByte: UInt8) -> (x: Double, y: Double, buttons: UInt8)? {
-        (normalizeAxis(byte: xByte), normalizeAxis(byte: yByte), buttonByte)
-    }
-
-    private func bestParsedReport(from raw: [UInt8]) -> (x: Double, y: Double, buttons: UInt8)? {
-        let candidates = axisCandidates(from: raw)
-        guard !candidates.isEmpty else { return nil }
-
-        guard let best = candidates.max(by: {
-            parseConfidence(for: $0, changedButtons: $0.buttons ^ lastButtons) <
-            parseConfidence(for: $1, changedButtons: $1.buttons ^ lastButtons)
-        }) else { return nil }
-
-        return best
-    }
-
-    private func axisCandidates(from raw: [UInt8]) -> [(x: Double, y: Double, buttons: UInt8)] {
-        var parsed: [(x: Double, y: Double, buttons: UInt8)] = []
-        if raw.count < 3 { return parsed }
-
-        func appendIfLikely(_ candidate: (x: Double, y: Double, buttons: UInt8)?) {
-            guard let candidate else { return }
-            guard candidate.buttons == 0 || isLikelyButtonByte(candidate.buttons) else { return }
-            parsed.append(candidate)
-        }
-
-        let maxStart = raw.count - 3
-        for start in 0...maxStart {
-            appendIfLikely(
-                parseReport(buttonByte: raw[start], xByte: raw[start + 1], yByte: raw[start + 2])
-            )
-
-            if start + 3 < raw.count,
-               let candidate = parseReport(buttonByte: raw[start], xByte: raw[start + 2], yByte: raw[start + 3]) {
-                appendIfLikely(candidate)
-            }
-
-            if start + 2 < raw.count {
-                appendIfLikely(
-                    parseReport(buttonByte: raw[start + 2], xByte: raw[start], yByte: raw[start + 1])
-                )
-            }
-
-            if start + 3 < raw.count && start + 4 < raw.count {
-                appendIfLikely(
-                    parseReport(
-                        buttonByte: raw[start + 1],
-                        xByte: raw[start + 2],
-                        yByte: raw[start + 3]
-                    )
-                )
-            }
-        }
-
-        return parsed
-    }
-
-    private func parseConfidence(for parsed: (x: Double, y: Double, buttons: UInt8), changedButtons: UInt8) -> Double {
-        let joystickMagnitude = abs(parsed.x) + abs(parsed.y)
-        let buttonDelta = Double(changedButtons.nonzeroBitCount) * 0.85
-        let buttonMaskPenalty = isLikelyButtonByte(parsed.buttons) ? 0 : -1.0
-        let buttonCountPenalty = changedButtons.nonzeroBitCount > 2 ? -0.35 : 0
-        return joystickMagnitude + buttonDelta + buttonMaskPenalty + buttonCountPenalty
-    }
-
-    private func isLikelyButtonByte(_ value: UInt8) -> Bool {
-        if value == 0 { return true }
-        return value.nonzeroBitCount <= 4
-    }
-
-    private func normalizeAxis(byte: UInt8) -> Double {
-        let centeredByByte = (Double(byte) - 128.0) / 127.0
-        let centeredBySigned = Double(Int8(bitPattern: byte)) / 127.0
-
-        if abs(centeredBySigned) <= 1.05 {
-            return max(-1.0, min(1.0, centeredBySigned))
-        }
-
-        return max(-1.0, min(1.0, centeredByByte))
+    private func resetInputState() {
+        lastButtons = 0
+        lastX = 0
+        lastY = 0
+        parserConfiguration = nil
+        onAction?(.joystick(x: 0, y: 0))
     }
 }
