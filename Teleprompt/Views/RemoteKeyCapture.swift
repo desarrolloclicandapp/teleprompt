@@ -97,8 +97,6 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
-            // Hardware keyboards may repeat while a button is held. Discrete
-            // remote actions must run once per physical press.
             guard activeUIKitKeyCodes.insert(code).inserted else { continue }
             onAction?(action)
         }
@@ -270,7 +268,6 @@ final class RemoteKeyView: UIView {
         if up == down {
             y = 0
         } else {
-            // Match GameController: pushing up produces a positive Y value.
             y = up ? 1 : -1
         }
 
@@ -279,24 +276,22 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: UIKeyboardHIDUsage) -> RemoteAction? {
         switch code {
-        // Literal keyboard/gamepad mode used by generic controllers.
-        case .keyboardA:
+        // RemotePAD game mode: literal A/B/X/Y contract.
+        case .keyboardA, .keyboardReturnOrEnter:
             return .playPause
-        case .keyboardB:
+        case .keyboardB, .keyboardEscape:
             return .toggleControls
         case .keyboardX:
             return .toggleRecordingPause
+        case .keyboardY:
+            return .toggleRecording
 
-        // TeleprompterPAD/RemotePAD iOS preset:
-        // physical A -> fast forward -> R/U or Page Down
-        // physical B -> rewind -> F/H or Page Up
-        // physical X -> play/pause -> Y or Space
-        // physical Y -> go to top -> J or Home
+        // Secondary compatibility mappings.
         case .keyboardR, .keyboardU, .keyboardPageDown:
             return .playPause
         case .keyboardF, .keyboardH, .keyboardPageUp:
             return .toggleControls
-        case .keyboardY, .keyboardSpacebar:
+        case .keyboardSpacebar:
             return .toggleRecordingPause
         case .keyboardJ, .keyboardHome:
             return .toggleRecording
@@ -308,20 +303,22 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: GCKeyCode) -> RemoteAction? {
         switch code {
-        // Literal keyboard/gamepad mode used by generic controllers.
-        case .keyA:
+        // RemotePAD game mode: literal A/B/X/Y contract.
+        case .keyA, .returnOrEnter:
             return .playPause
-        case .keyB:
+        case .keyB, .escape:
             return .toggleControls
         case .keyX:
             return .toggleRecordingPause
+        case .keyY:
+            return .toggleRecording
 
-        // Official TeleprompterPAD/RemotePAD iOS keyboard mapping.
+        // Secondary compatibility mappings.
         case .keyR, .keyU, .pageDown:
             return .playPause
         case .keyF, .keyH, .pageUp:
             return .toggleControls
-        case .keyY, .spacebar:
+        case .spacebar:
             return .toggleRecordingPause
         case .keyJ, .home:
             return .toggleRecording
