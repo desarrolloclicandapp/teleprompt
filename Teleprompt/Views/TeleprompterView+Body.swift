@@ -18,17 +18,26 @@ extension TeleprompterView {
                         .transition(.opacity)
                 }
 
-                RemoteKeyCapture(onAction: handleRemoteAction)
-                    .frame(width: 1, height: 1)
-                    .opacity(0.01)
+                RemoteKeyCapture { action in
+                    RemoteInputDiagnostics.shared.log("KEYBOARD", action.diagnosticsName)
+                    handleRemoteAction(action)
+                }
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
 
-                RemoteGamepadCapture(onAction: handleRemoteAction)
-                    .frame(width: 1, height: 1)
-                    .opacity(0.01)
+                RemoteGamepadCapture { action in
+                    RemoteInputDiagnostics.shared.log("GAMEPAD", action.diagnosticsName)
+                    handleRemoteAction(action)
+                }
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
 
-                RemoteMediaCommandCapture(onAction: handleRemoteAction)
-                    .frame(width: 1, height: 1)
-                    .opacity(0.01)
+                RemoteMediaCommandCapture { action in
+                    RemoteInputDiagnostics.shared.log("MEDIA", action.diagnosticsName)
+                    handleRemoteAction(action)
+                }
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
 
                 if panelSize != .zero {
                     readerPanel
@@ -62,6 +71,25 @@ extension TeleprompterView {
                         .padding(.trailing, landscape && !cameraSideIsTrailing ? 8 : 0)
                         .padding(.bottom, 4)
                         .zIndex(5)
+
+                    Button {
+                        showRemoteDiagnostics = true
+                    } label: {
+                        Image(systemName: "ladybug.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(width: 42, height: 42)
+                            .background(.black.opacity(0.72), in: Circle())
+                            .overlay {
+                                Circle().stroke(.white.opacity(0.25), lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, 12)
+                    .padding(.trailing, 12)
+                    .zIndex(20)
+                    .accessibilityLabel("Abrir diagnóstico RemotePAD")
                 }
 
                 if recorder.isProcessing {
@@ -244,7 +272,7 @@ extension TeleprompterView {
         }
         .frame(width: 48, height: 84)
         .contentShape(Rectangle())
-        .gesture(resizeGesture(resizeWidth: true, resizeHeight: false))
+        .gesture(resizeGesture(resizeWidth: false, resizeHeight: false))
         .accessibilityLabel("Cambiar el ancho del panel de texto")
     }
 
