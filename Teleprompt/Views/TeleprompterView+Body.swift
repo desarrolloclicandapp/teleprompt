@@ -26,6 +26,10 @@ extension TeleprompterView {
                     .frame(width: 1, height: 1)
                     .opacity(0.01)
 
+                RemoteMediaCommandCapture(onAction: handleRemoteAction)
+                    .frame(width: 1, height: 1)
+                    .opacity(0.01)
+
                 if panelSize != .zero {
                     readerPanel
                         .frame(width: panelSize.width, height: panelSize.height)
@@ -58,6 +62,12 @@ extension TeleprompterView {
                         .padding(.trailing, landscape && !cameraSideIsTrailing ? 8 : 0)
                         .padding(.bottom, 4)
                         .zIndex(5)
+                }
+
+                if recorder.isProcessing {
+                    processingVideoOverlay
+                        .zIndex(100)
+                        .transition(.opacity)
                 }
             }
             .onAppear {
@@ -105,6 +115,41 @@ extension TeleprompterView {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showCamera)
+        .animation(.easeInOut(duration: 0.15), value: recorder.isProcessing)
+    }
+
+    var processingVideoOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.72)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+
+                Text("Procesando video")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                Text("Uniendo segmentos y guardando en Fotos…")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+            .background(.black.opacity(0.84), in: RoundedRectangle(cornerRadius: 20))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(.white.opacity(0.15), lineWidth: 1)
+            }
+        }
+        .contentShape(Rectangle())
+        .allowsHitTesting(true)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Procesando y guardando el video. Los controles están temporalmente bloqueados.")
+        .accessibilityAddTraits(.isModal)
     }
 
     var readerPanel: some View {
