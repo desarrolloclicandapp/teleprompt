@@ -1,3 +1,4 @@
+import GameController
 import SwiftUI
 import UIKit
 
@@ -8,18 +9,14 @@ struct RemoteKeyCapture: UIViewRepresentable {
         let view = RemoteKeyView()
         view.onAction = onAction
         DispatchQueue.main.async {
-            view.becomeFirstResponder()
+            view.activateCapture()
         }
         return view
     }
 
     func updateUIView(_ uiView: RemoteKeyView, context: Context) {
         uiView.onAction = onAction
-        if !uiView.isFirstResponder {
-            DispatchQueue.main.async {
-                uiView.becomeFirstResponder()
-            }
-        }
+        uiView.activateCapture()
     }
 }
 
@@ -38,20 +35,46 @@ enum RemoteAction {
 
 final class RemoteKeyView: UIView {
     var onAction: ((RemoteAction) -> Void)?
-    private var activeKeyCodes: Set<UIKeyboardHIDUsage> = []
+
+    private var activeUIKitKeyCodes: Set<UIKeyboardHIDUsage> = []
+    private var activeGameControllerKeyCodes: Set<GCKeyCode> = []
+    private var keyboardConnectObserver: NSObjectProtocol?
+    private var keyboardDisconnectObserver: NSObjectProtocol?
+    private var boundKeyboardInput: GCKeyboardInput?
 
     override var canBecomeFirstResponder: Bool { true }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+
         guard window != nil else {
-            activeKeyCodes.removeAll()
-            emitKeyboardJoystick()
+            stopKeyboardCapture()
+            clearPressedKeys()
             return
         }
-        DispatchQueue.main.async { [weak self] in
-            self?.becomeFirstResponder()
+
+        activateCapture()
+    }
+
+    deinit {
+        if let keyboardConnectObserver {
+            NotificationCenter.default.removeObserver(keyboardConnectObserver)
         }
+        if let keyboardDisconnectObserver {
+            NotificationCenter.default.removeObserver(keyboardDisconnectObserver)
+        }
+        boundKeyboardInput?.keyChangedHandler = nil
+    }
+
+    func activateCapture() {
+        guard window != nil else { return }
+
+        if !isFirstResponder {
+            becomeFirstResponder()
+        }
+
+        startKeyboardCaptureIfNeeded()
+        bindCoalescedKeyboard()
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
@@ -64,7 +87,7 @@ final class RemoteKeyView: UIView {
             }
 
             if isJoystickKey(code) {
-                guard activeKeyCodes.insert(code).inserted else { continue }
+                guard activeUIKitKeyCodes.insert(code).inserted else { continue }
                 emitKeyboardJoystick()
                 continue
             }
@@ -74,9 +97,9 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
-            // A held key can repeat rapidly. Toggle actions must execute once
-            // per physical press, not once per keyboard-repeat event.
-            guard activeKeyCodes.insert(code).inserted else { continue }
+            // Hardware keyboards may repeat while a button is held. Discrete
+            // remote actions must run once per physical press.
+            guard activeUIKitKeyCodes.insert(code).inserted else { continue }
             onAction?(action)
         }
 
@@ -86,7 +109,7 @@ final class RemoteKeyView: UIView {
     }
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        let releasedJoystick = releaseKeyCodes(in: presses)
+        let releasedJoystick = releaseUIKitKeyCodes(in: presses)
         if releasedJoystick {
             emitKeyboardJoystick()
         }
@@ -94,23 +117,115 @@ final class RemoteKeyView: UIView {
     }
 
     override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        let releasedJoystick = releaseKeyCodes(in: presses)
+        let releasedJoystick = releaseUIKitKeyCodes(in: presses)
         if releasedJoystick {
             emitKeyboardJoystick()
         }
         super.pressesCancelled(presses, with: event)
     }
 
+    private func startKeyboardCaptureIfNeeded() {
+        guard keyboardConnectObserver == nil, keyboardDisconnectObserver == nil else { return }
+
+        keyboardConnectObserver = NotificationCenter.default.addObserver(
+            forName: .GCKeyboardDidConnect,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let keyboard = notification.object as? GCKeyboard else { return }
+            self?.bindKeyboard(keyboard)
+        }
+
+        keyboardDisconnectObserver = NotificationCenter.default.addObserver(
+            forName: .GCKeyboardDidDisconnect,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.unbindKeyboard()
+            self?.bindCoalescedKeyboard()
+        }
+    }
+
+    private func stopKeyboardCapture() {
+        if let keyboardConnectObserver {
+            NotificationCenter.default.removeObserver(keyboardConnectObserver)
+            self.keyboardConnectObserver = nil
+        }
+
+        if let keyboardDisconnectObserver {
+            NotificationCenter.default.removeObserver(keyboardDisconnectObserver)
+            self.keyboardDisconnectObserver = nil
+        }
+
+        unbindKeyboard()
+    }
+
+    private func bindCoalescedKeyboard() {
+        guard let keyboard = GCKeyboard.coalesced else { return }
+        bindKeyboard(keyboard)
+    }
+
+    private func bindKeyboard(_ keyboard: GCKeyboard) {
+        let input = keyboard.keyboardInput
+        guard boundKeyboardInput !== input else { return }
+
+        unbindKeyboard()
+        boundKeyboardInput = input
+        input.keyChangedHandler = { [weak self] _, _, keyCode, pressed in
+            DispatchQueue.main.async {
+                self?.handleGameControllerKey(keyCode, pressed: pressed)
+            }
+        }
+    }
+
+    private func unbindKeyboard() {
+        boundKeyboardInput?.keyChangedHandler = nil
+        boundKeyboardInput = nil
+        activeGameControllerKeyCodes.removeAll()
+        emitKeyboardJoystick()
+    }
+
+    private func handleGameControllerKey(_ code: GCKeyCode, pressed: Bool) {
+        if isJoystickKey(code) {
+            if pressed {
+                activeGameControllerKeyCodes.insert(code)
+            } else {
+                activeGameControllerKeyCodes.remove(code)
+            }
+            emitKeyboardJoystick()
+            return
+        }
+
+        if pressed {
+            guard activeGameControllerKeyCodes.insert(code).inserted else { return }
+            if let action = action(for: code) {
+                onAction?(action)
+            } else {
+                logUnhandledGameControllerKey(code)
+            }
+        } else {
+            activeGameControllerKeyCodes.remove(code)
+        }
+    }
+
     @discardableResult
-    private func releaseKeyCodes(in presses: Set<UIPress>) -> Bool {
+    private func releaseUIKitKeyCodes(in presses: Set<UIPress>) -> Bool {
         var releasedJoystick = false
+
         for press in presses {
             if let code = press.key?.keyCode {
-                activeKeyCodes.remove(code)
+                activeUIKitKeyCodes.remove(code)
                 releasedJoystick = releasedJoystick || isJoystickKey(code)
             }
         }
+
         return releasedJoystick
+    }
+
+    private func clearPressedKeys() {
+        activeUIKitKeyCodes.removeAll()
+        activeGameControllerKeyCodes.removeAll()
+        emitKeyboardJoystick()
     }
 
     private func isJoystickKey(_ code: UIKeyboardHIDUsage) -> Bool {
@@ -125,11 +240,24 @@ final class RemoteKeyView: UIView {
         }
     }
 
+    private func isJoystickKey(_ code: GCKeyCode) -> Bool {
+        switch code {
+        case .leftArrow, .rightArrow, .upArrow, .downArrow:
+            return true
+        default:
+            return false
+        }
+    }
+
     private func emitKeyboardJoystick() {
-        let left = activeKeyCodes.contains(.keyboardLeftArrow)
-        let right = activeKeyCodes.contains(.keyboardRightArrow)
-        let up = activeKeyCodes.contains(.keyboardUpArrow)
-        let down = activeKeyCodes.contains(.keyboardDownArrow)
+        let left = activeUIKitKeyCodes.contains(.keyboardLeftArrow)
+            || activeGameControllerKeyCodes.contains(.leftArrow)
+        let right = activeUIKitKeyCodes.contains(.keyboardRightArrow)
+            || activeGameControllerKeyCodes.contains(.rightArrow)
+        let up = activeUIKitKeyCodes.contains(.keyboardUpArrow)
+            || activeGameControllerKeyCodes.contains(.upArrow)
+        let down = activeUIKitKeyCodes.contains(.keyboardDownArrow)
+            || activeGameControllerKeyCodes.contains(.downArrow)
 
         let x: Double
         if left == right {
@@ -151,7 +279,7 @@ final class RemoteKeyView: UIView {
 
     private func action(for code: UIKeyboardHIDUsage) -> RemoteAction? {
         switch code {
-        // Literal keyboard/gamepad mode used by some generic controllers.
+        // Literal keyboard/gamepad mode used by generic controllers.
         case .keyboardA:
             return .playPause
         case .keyboardB:
@@ -176,5 +304,36 @@ final class RemoteKeyView: UIView {
         default:
             return nil
         }
+    }
+
+    private func action(for code: GCKeyCode) -> RemoteAction? {
+        switch code {
+        // Literal keyboard/gamepad mode used by generic controllers.
+        case .keyA:
+            return .playPause
+        case .keyB:
+            return .toggleControls
+        case .keyX:
+            return .toggleRecordingPause
+
+        // Official TeleprompterPAD/RemotePAD iOS keyboard mapping.
+        case .keyR, .keyU, .pageDown:
+            return .playPause
+        case .keyF, .keyH, .pageUp:
+            return .toggleControls
+        case .keyY, .spacebar:
+            return .toggleRecordingPause
+        case .keyJ, .home:
+            return .toggleRecording
+
+        default:
+            return nil
+        }
+    }
+
+    private func logUnhandledGameControllerKey(_ code: GCKeyCode) {
+#if DEBUG
+        print("[RemotePAD] Unhandled GCKeyboard key code: \(code.rawValue)")
+#endif
     }
 }
