@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - codex/remote-pad-camera-stable-review
+  push:
+    branches:
+      - codex/fix-remote-pad-abxy
 
 permissions:
   contents: read
@@ -65,6 +68,7 @@ jobs:
 
       - name: Run unit tests
         run: |
+          set -o pipefail
           xcrun simctl boot "${{ steps.simulator.outputs.udid }}" || true
           xcodebuild test \
             -project Teleprompt.xcodeproj \
