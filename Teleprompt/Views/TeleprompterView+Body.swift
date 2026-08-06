@@ -100,6 +100,9 @@ extension TeleprompterView {
                 mirrorVertical: $mirrorVertical
             )
         }
+        .sheet(isPresented: $showRemoteDiagnostics) {
+            RemoteInputDiagnosticsView()
+        }
         .task(id: showCamera) {
             if showCamera {
                 await recorder.prepare()
