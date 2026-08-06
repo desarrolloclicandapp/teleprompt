@@ -106,23 +106,18 @@ final class CameraRecorder: NSObject, ObservableObject {
         guard isRecording, !isPaused else { return }
         if movieOutput.isRecording { return }
 
-        if let connection = movieOutput.connection(with: .video) {
-            let angle: CGFloat
+        if let connection = movieOutput.connection(with: .video), connection.isVideoOrientationSupported {
             switch interfaceOrientation {
             case .landscapeLeft:
-                angle = 90
+                connection.videoOrientation = .landscapeLeft
             case .landscapeRight:
-                angle = -90
+                connection.videoOrientation = .landscapeRight
             case .portraitUpsideDown:
-                angle = 180
+                connection.videoOrientation = .portraitUpsideDown
             default:
-                angle = 0
-            }
-            if connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
+                connection.videoOrientation = .portrait
             }
         }
-
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let url = tmpDir.appendingPathComponent("Take-\(Int(Date().timeIntervalSince1970)).mov")
         movieOutput.startRecording(to: url, recordingDelegate: self)
