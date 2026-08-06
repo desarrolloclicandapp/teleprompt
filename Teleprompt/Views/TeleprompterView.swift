@@ -318,20 +318,29 @@ struct TeleprompterView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    if showCamera && recorder.isRecording {
+                    if recorder.isRecording && showCamera {
                         recorder.togglePauseResume(interfaceOrientation: currentInterfaceOrientation)
-                    } else {
-                        dismiss()
                     }
                 } label: {
-                    Image(systemName: showCamera ? (recorder.isPaused ? "play.fill" : "pause.fill") : "xmark")
+                    Image(systemName: recorder.isRecording ? (recorder.isPaused ? "play.fill" : "pause.fill") : "pause.circle")
                         .frame(width: 42, height: 42)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
                 .tint(showCamera && recorder.isRecording ? (recorder.isPaused ? .green : .yellow) : nil)
+                .disabled(!recorder.isRecording)
+                .accessibilityLabel(recorder.isRecording ? (recorder.isPaused ? "Reanudar grabación" : "Pausar grabación") : "Pausar grabación")
 
-                .accessibilityLabel(showCamera ? (recorder.isPaused ? "Reanudar grabación" : "Pausar grabación") : "Cerrar teleprompter")
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .frame(width: 42, height: 42)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Cerrar teleprompter")
+
 
                 Button { resetReader() } label: {
                     Image(systemName: "backward.end.fill")
