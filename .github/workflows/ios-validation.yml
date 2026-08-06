@@ -36,15 +36,13 @@ jobs:
 
       - name: Build for iOS Simulator
         run: |
-          set -o pipefail
           xcodebuild build \
             -project Teleprompt.xcodeproj \
             -scheme Teleprompt \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            | xcpretty
+            CODE_SIGNING_REQUIRED=NO
 
       - name: Select an available iPhone simulator
         id: simulator
@@ -65,12 +63,10 @@ jobs:
 
       - name: Run unit tests
         run: |
-          set -o pipefail
           xcrun simctl boot "${{ steps.simulator.outputs.udid }}" || true
           xcodebuild test \
             -project Teleprompt.xcodeproj \
             -scheme Teleprompt \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            | xcpretty
+            CODE_SIGNING_REQUIRED=NO
