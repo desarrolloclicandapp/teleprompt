@@ -203,10 +203,21 @@ extension TeleprompterView {
                 Image(systemName: "tortoise.fill")
                     .foregroundStyle(.secondary)
 
-                Slider(value: $speed, in: minimumSpeed...maximumSpeed, step: 1)
+                Slider(
+                    value: Binding(
+                        get: { Double(speedLevel) },
+                        set: { level in
+                            speed = speedForLevel(Int(level.rounded()))
+                        }
+                    ),
+                    in: 1...Double(speedLevelCount),
+                    step: 1
+                )
                     .tint(.mint)
                     .accessibilityLabel("Velocidad de lectura")
-                    .accessibilityValue("\(Int(speed)) palabras por minuto")
+                    .accessibilityValue(
+                        "Nivel \(speedLevel) de \(speedLevelCount), \(Int(speed)) palabras por minuto"
+                    )
 
                 Image(systemName: "hare.fill")
                     .foregroundStyle(.secondary)
@@ -214,8 +225,10 @@ extension TeleprompterView {
                 Text("\(Int(speed))")
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.white.opacity(0.86))
-                    .frame(minWidth: 34, alignment: .trailing)
-                    .accessibilityLabel("\(Int(speed)) palabras por minuto")
+                    .frame(minWidth: 42, alignment: .trailing)
+                    .accessibilityLabel(
+                        "Nivel \(speedLevel) de \(speedLevelCount), \(Int(speed)) palabras por minuto"
+                    )
             }
 
             ProgressView(value: progress)
