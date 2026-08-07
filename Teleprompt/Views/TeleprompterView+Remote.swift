@@ -6,16 +6,19 @@ extension TeleprompterView {
     func advanceScroll() {
         guard countdownValue == 0 else { return }
 
-        // Joystick X changes the configured reading speed. It never touches recorder state.
+        // Generic analog-controller fallback: speed always moves through the
+        // same 50 discrete levels used by the RemotePAD and the slider.
         let horizontalInput = abs(joystickInput.x) > 0.12
             ? Double(joystickInput.x)
             : 0
         if horizontalInput != 0 {
-            let speedDeltaPerFrame = horizontalInput * 120.0 / 60.0
-            speed = min(
-                maximumSpeed,
-                max(minimumSpeed, speed + speedDeltaPerFrame)
-            )
+            let now = Date()
+            if now.timeIntervalSince(lastJoystickSpeedChangeAt) >= 0.08 {
+                changeSpeedLevel(by: horizontalInput > 0 ? 1 : -1)
+                lastJoystickSpeedChangeAt = now
+            }
+        } else {
+            lastJoystickSpeedChangeAt = .distantPast
         }
 
         guard maxScrollOffset > 0 else { return }
@@ -34,7 +37,7 @@ extension TeleprompterView {
             ? (speed * 0.12 * Double(fontScale)) / 60.0
             : 0
         let joystickDeltaPerFrame = (
-            verticalInput * max(120, speed) * 0.18 * Double(fontScale)
+            verticalInput * max(minimumSpeed, speed) * 0.18 * Double(fontScale)
         ) / 60.0
 
         let requestedOffset = scrollOffset
@@ -64,13 +67,12 @@ extension TeleprompterView {
             }
 
         case .next:
-            // TeleprompterPAD joystick Up: move the script upward in small,
-            // repeatable steps without changing the playback state.
+            // Move toward the end of the script in small repeatable steps.
             let step = max(18, viewportHeight * 0.035)
             scrollOffset = min(maxScrollOffset, scrollOffset + step)
 
         case .previous:
-            // TeleprompterPAD joystick Down: move the script downward.
+            // Move toward the beginning/top of the script.
             let step = max(18, viewportHeight * 0.035)
             scrollOffset = max(0, scrollOffset - step)
 
@@ -78,10 +80,10 @@ extension TeleprompterView {
             resetReader()
 
         case .increaseSpeed:
-            speed = min(maximumSpeed, speed + 2)
+            changeSpeedLevel(by: 1)
 
         case .decreaseSpeed:
-            speed = max(minimumSpeed, speed - 2)
+            changeSpeedLevel(by: -1)
 
         case .joystick(let x, let y):
             joystickInput = CGPoint(x: CGFloat(x), y: CGFloat(y))
@@ -97,6 +99,10 @@ extension TeleprompterView {
             // Y: start a new recording or finalize the current one.
             toggleRecordingFromRemote()
         }
+    }
+
+    func changeSpeedLevel(by delta: Int) {
+        speed = speedForLevel(speedLevel + delta)
     }
 
     private func shouldIgnoreDuplicate(_ action: RemoteAction) -> Bool {
