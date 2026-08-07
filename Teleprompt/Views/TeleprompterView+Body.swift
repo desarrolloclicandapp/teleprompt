@@ -81,17 +81,16 @@ extension TeleprompterView {
                     } label: {
                         Image(systemName: "ladybug.fill")
                             .font(.system(size: 15, weight: .bold))
-                            .frame(width: 42, height: 42)
-                            .background(.black.opacity(0.72), in: Circle())
+                            .frame(width: 48, height: 48)
+                            .background(.black.opacity(0.78), in: Circle())
                             .overlay {
-                                Circle().stroke(.white.opacity(0.25), lineWidth: 1)
+                                Circle().stroke(.white.opacity(0.3), lineWidth: 1)
                             }
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 12)
-                    .padding(.trailing, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .padding(.leading, max(16, canvas.safeAreaInsets.leading + 12))
                     .zIndex(20)
                     .accessibilityLabel("Abrir diagnóstico RemotePAD")
                 }
