@@ -379,16 +379,19 @@ final class RemoteKeyView: UIView {
 
     private func measuredJoystickAction(raw: Int) -> RemoteAction? {
         switch raw {
-        // Native iPhone GAME-mode positions, adjusted from the physical test:
-        // Left = speed up, Right = move text up, Up = speed down, Down = move text down.
+        // Native iPhone GAME-mode positions after the verified physical remap:
+        // 115/109 stays speed up.
+        // 88/96 now moves toward the beginning/top.
+        // 62/107 now moves toward the end/bottom.
+        // 143/146 now decreases speed.
         case 115, 109:
             return .increaseSpeed
         case 88, 96:
-            return .next
-        case 62, 107:
-            return .decreaseSpeed
-        case 143, 146:
             return .previous
+        case 62, 107:
+            return .next
+        case 143, 146:
+            return .decreaseSpeed
         default:
             return nil
         }
