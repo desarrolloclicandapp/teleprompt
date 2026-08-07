@@ -48,9 +48,10 @@ final class RemoteKeyView: UIView {
     override var keyCommands: [UIKeyCommand]? {
         var commands: [UIKeyCommand] = []
 
-        // Official TeleprompterPAD keyboard mapping on iOS:
-        // physical A -> R/U, physical B -> F/H,
-        // physical X -> Y, physical Y -> J.
+        // Secondary TeleprompterPAD keyboard-mode compatibility mappings.
+        // The physical device tested in GAME mode emits 1/2/4/3 instead;
+        // those measured inputs are handled in action(for:) below so held
+        // discrete buttons cannot auto-repeat and accidentally toggle twice.
         commands += letterCommands("r", action: #selector(handlePlayPauseCommand(_:)))
         commands += letterCommands("u", action: #selector(handlePlayPauseCommand(_:)))
         commands += letterCommands("a", action: #selector(handlePlayPauseCommand(_:)))
@@ -64,8 +65,9 @@ final class RemoteKeyView: UIView {
 
         commands += letterCommands("j", action: #selector(handleRecordingCommand(_:)))
 
-        // The joystick is a digital keyboard control on iOS. Give these
-        // commands priority over UIKit focus movement.
+        // The RemotePAD joystick measured on Windows emits the four keyboard
+        // arrow keys. Give them priority over UIKit focus/navigation so iOS
+        // cannot consume them before the teleprompter sees the event.
         commands.append(
             priorityCommand(
                 UIKeyCommand.inputLeftArrow,
@@ -148,6 +150,8 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
+            // A/B/X/Y are discrete toggles. RemotePAD emits keyboard auto-repeat
+            // after a button is held for ~0.5 s, so run once until key-up.
             guard activeUIKitKeyCodes.insert(code).inserted else { continue }
             onAction?(action)
         }
@@ -299,6 +303,8 @@ final class RemoteKeyView: UIView {
         }
 
         if pressed {
+            // GCKeyboard also receives keyboard auto-repeat. Keep all discrete
+            // mappings one-shot until the physical button is released.
             guard activeGameControllerKeyCodes.insert(code).inserted else { return }
             if let action = action(for: code) {
                 onAction?(action)
@@ -381,6 +387,37 @@ final class RemoteKeyView: UIView {
     private func action(for key: UIKey) -> RemoteAction? {
         let characters = key.charactersIgnoringModifiers.lowercased()
 
+        // Measured contract from this specific RemotePAD in GAME mode.
+        // Windows HID log: A=1, B=2, X=4, Y=3.
+        switch characters {
+        case "1":
+            return .playPause
+        case "2":
+            return .toggleControls
+        case "4":
+            return .toggleRecordingPause
+        case "3":
+            return .toggleRecording
+        default:
+            break
+        }
+
+        // Use HID usage too, in case iOS doesn't provide characters for the
+        // Bluetooth key event.
+        switch key.keyCode {
+        case .keyboard1:
+            return .playPause
+        case .keyboard2:
+            return .toggleControls
+        case .keyboard4:
+            return .toggleRecordingPause
+        case .keyboard3:
+            return .toggleRecording
+        default:
+            break
+        }
+
+        // Secondary compatibility mappings for other RemotePAD modes/models.
         switch characters {
         case "r", "u", "a":
             return .playPause
@@ -407,6 +444,22 @@ final class RemoteKeyView: UIView {
     }
 
     private func action(for code: GCKeyCode) -> RemoteAction? {
+        // Same measured GAME-mode contract through GameController's keyboard
+        // API. Apple exposes the top-row number keys as one/two/three/four.
+        switch code {
+        case .one:
+            return .playPause
+        case .two:
+            return .toggleControls
+        case .four:
+            return .toggleRecordingPause
+        case .three:
+            return .toggleRecording
+        default:
+            break
+        }
+
+        // Secondary compatibility mappings.
         switch code {
         case .keyR, .keyU, .keyA, .returnOrEnter, .pageDown:
             return .playPause
