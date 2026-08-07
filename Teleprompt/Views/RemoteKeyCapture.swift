@@ -42,6 +42,13 @@ final class RemoteKeyView: UIView {
     private var keyboardDisconnectObserver: NSObjectProtocol?
     private var boundKeyboardInput: GCKeyboardInput?
 
+    // UIKit and GCKeyboard report the same physical HID event a few
+    // milliseconds apart on this RemotePAD. Keep a tiny cross-channel
+    // dedupe window for the measured joystick pulses while still allowing
+    // the next hardware repeat (~50 ms later) through.
+    private var lastMeasuredJoystickRaw: Int?
+    private var lastMeasuredJoystickAt = Date.distantPast
+
     override var canBecomeFirstResponder: Bool { true }
     override var canResignFirstResponder: Bool { false }
 
@@ -49,9 +56,6 @@ final class RemoteKeyView: UIView {
         var commands: [UIKeyCommand] = []
 
         // Secondary TeleprompterPAD keyboard-mode compatibility mappings.
-        // The physical device tested in GAME mode emits 1/2/4/3 instead;
-        // those measured inputs are handled in action(for:) below so held
-        // discrete buttons cannot auto-repeat and accidentally toggle twice.
         commands += letterCommands("r", action: #selector(handlePlayPauseCommand(_:)))
         commands += letterCommands("u", action: #selector(handlePlayPauseCommand(_:)))
         commands += letterCommands("a", action: #selector(handlePlayPauseCommand(_:)))
@@ -62,12 +66,10 @@ final class RemoteKeyView: UIView {
 
         commands += letterCommands("y", action: #selector(handleRecordingPauseCommand(_:)))
         commands += letterCommands("x", action: #selector(handleRecordingPauseCommand(_:)))
-
         commands += letterCommands("j", action: #selector(handleRecordingCommand(_:)))
 
-        // The RemotePAD joystick measured on Windows emits the four keyboard
-        // arrow keys. Give them priority over UIKit focus/navigation so iOS
-        // cannot consume them before the teleprompter sees the event.
+        // Standard arrow-key fallback. The measured iPhone GAME-mode joystick
+        // uses different HID usages, handled below by rawValue.
         commands.append(
             priorityCommand(
                 UIKeyCommand.inputLeftArrow,
@@ -138,15 +140,23 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
+            let raw = Int(key.keyCode.rawValue)
             RemoteInputDiagnostics.shared.log(
                 "KEY-RAW",
-                "chars=\(key.charactersIgnoringModifiers.debugDescription) hid=\(key.keyCode.rawValue)"
+                "chars=\(key.charactersIgnoringModifiers.debugDescription) hid=\(raw)"
             )
 
+            // Measured iPhone GAME-mode joystick. These are digital HID pulses,
+            // not an analog GCController thumbstick. Handle the distinctive
+            // entry/repeat usages directly.
+            if emitMeasuredJoystick(raw: raw) {
+                continue
+            }
+
             let code = key.keyCode
-            if isJoystickKey(code) {
+            if isStandardJoystickKey(code) {
                 guard activeUIKitKeyCodes.insert(code).inserted else { continue }
-                emitKeyboardJoystick()
+                emitStandardKeyboardJoystick()
                 continue
             }
 
@@ -155,8 +165,8 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
-            // A/B/X/Y are discrete toggles. RemotePAD emits keyboard auto-repeat
-            // after a button is held for ~0.5 s, so run once until key-up.
+            // A/B/X/Y are discrete toggles. Run once until key-up even if the
+            // RemotePAD generates keyboard auto-repeat while held.
             guard activeUIKitKeyCodes.insert(code).inserted else { continue }
             onAction?(action)
         }
@@ -169,7 +179,7 @@ final class RemoteKeyView: UIView {
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let releasedJoystick = releaseUIKitKeyCodes(in: presses)
         if releasedJoystick {
-            emitKeyboardJoystick()
+            emitStandardKeyboardJoystick()
         }
         super.pressesEnded(presses, with: event)
     }
@@ -177,7 +187,7 @@ final class RemoteKeyView: UIView {
     override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         let releasedJoystick = releaseUIKitKeyCodes(in: presses)
         if releasedJoystick {
-            emitKeyboardJoystick()
+            emitStandardKeyboardJoystick()
         }
         super.pressesCancelled(presses, with: event)
     }
@@ -303,28 +313,31 @@ final class RemoteKeyView: UIView {
         boundKeyboardInput?.keyChangedHandler = nil
         boundKeyboardInput = nil
         activeGameControllerKeyCodes.removeAll()
-        emitKeyboardJoystick()
+        emitStandardKeyboardJoystick()
     }
 
     private func handleGameControllerKey(_ code: GCKeyCode, pressed: Bool) {
+        let raw = Int(code.rawValue)
         RemoteInputDiagnostics.shared.log(
             "GC-KEY-RAW",
-            "code=\(code.rawValue) pressed=\(pressed)"
+            "code=\(raw) pressed=\(pressed)"
         )
 
-        if isJoystickKey(code) {
+        if pressed, emitMeasuredJoystick(raw: raw) {
+            return
+        }
+
+        if isStandardJoystickKey(code) {
             if pressed {
                 activeGameControllerKeyCodes.insert(code)
             } else {
                 activeGameControllerKeyCodes.remove(code)
             }
-            emitKeyboardJoystick()
+            emitStandardKeyboardJoystick()
             return
         }
 
         if pressed {
-            // GCKeyboard also receives keyboard auto-repeat. Keep all discrete
-            // mappings one-shot until the physical button is released.
             guard activeGameControllerKeyCodes.insert(code).inserted else { return }
             if let action = action(for: code) {
                 onAction?(action)
@@ -336,6 +349,70 @@ final class RemoteKeyView: UIView {
         }
     }
 
+    // MARK: - Measured TeleprompterPAD iPhone GAME-mode contract
+
+    private func measuredButtonAction(raw: Int) -> RemoteAction? {
+        switch raw {
+        // Native iPhone log, physical test order A / B / X / Y.
+        case 42: // Backspace
+            return .playPause
+        case 41: // Escape
+            return .toggleControls
+        case 44: // Space
+            return .toggleRecordingPause
+        case 45: // Hyphen/apostrophe depending keyboard layout
+            return .toggleRecording
+
+        // Windows GAME-mode fallback measured on the same RemotePAD.
+        case 30: // 1
+            return .playPause
+        case 31: // 2
+            return .toggleControls
+        case 33: // 4
+            return .toggleRecordingPause
+        case 32: // 3
+            return .toggleRecording
+        default:
+            return nil
+        }
+    }
+
+    private func measuredJoystickAction(raw: Int) -> RemoteAction? {
+        switch raw {
+        // Native iPhone log, physical test order Left / Right / Up / Down.
+        // Each direction emits an initial usage plus a distinctive repeat usage.
+        case 115, 109:
+            return .decreaseSpeed
+        case 88, 96:
+            return .increaseSpeed
+        case 62, 107:
+            return .next
+        case 143, 146:
+            return .previous
+        default:
+            return nil
+        }
+    }
+
+    @discardableResult
+    private func emitMeasuredJoystick(raw: Int) -> Bool {
+        guard let action = measuredJoystickAction(raw: raw) else { return false }
+
+        let now = Date()
+        if lastMeasuredJoystickRaw == raw,
+           now.timeIntervalSince(lastMeasuredJoystickAt) < 0.025 {
+            return true
+        }
+
+        lastMeasuredJoystickRaw = raw
+        lastMeasuredJoystickAt = now
+        RemoteInputDiagnostics.shared.log("IOS-HID", "raw=\(raw) -> \(action.diagnosticsName)")
+        onAction?(action)
+        return true
+    }
+
+    // MARK: - Standard keyboard fallback
+
     @discardableResult
     private func releaseUIKitKeyCodes(in presses: Set<UIPress>) -> Bool {
         var releasedJoystick = false
@@ -343,7 +420,7 @@ final class RemoteKeyView: UIView {
         for press in presses {
             if let code = press.key?.keyCode {
                 activeUIKitKeyCodes.remove(code)
-                releasedJoystick = releasedJoystick || isJoystickKey(code)
+                releasedJoystick = releasedJoystick || isStandardJoystickKey(code)
             }
         }
 
@@ -353,10 +430,10 @@ final class RemoteKeyView: UIView {
     private func clearPressedKeys() {
         activeUIKitKeyCodes.removeAll()
         activeGameControllerKeyCodes.removeAll()
-        emitKeyboardJoystick()
+        emitStandardKeyboardJoystick()
     }
 
-    private func isJoystickKey(_ code: UIKeyboardHIDUsage) -> Bool {
+    private func isStandardJoystickKey(_ code: UIKeyboardHIDUsage) -> Bool {
         switch code {
         case .keyboardLeftArrow,
              .keyboardRightArrow,
@@ -368,7 +445,7 @@ final class RemoteKeyView: UIView {
         }
     }
 
-    private func isJoystickKey(_ code: GCKeyCode) -> Bool {
+    private func isStandardJoystickKey(_ code: GCKeyCode) -> Bool {
         switch code {
         case .leftArrow, .rightArrow, .upArrow, .downArrow:
             return true
@@ -377,7 +454,7 @@ final class RemoteKeyView: UIView {
         }
     }
 
-    private func emitKeyboardJoystick() {
+    private func emitStandardKeyboardJoystick() {
         let left = activeUIKitKeyCodes.contains(.keyboardLeftArrow)
             || activeGameControllerKeyCodes.contains(.leftArrow)
         let right = activeUIKitKeyCodes.contains(.keyboardRightArrow)
@@ -405,39 +482,14 @@ final class RemoteKeyView: UIView {
     }
 
     private func action(for key: UIKey) -> RemoteAction? {
+        let raw = Int(key.keyCode.rawValue)
+        if let measured = measuredButtonAction(raw: raw) {
+            return measured
+        }
+
         let characters = key.charactersIgnoringModifiers.lowercased()
 
-        // Measured contract from this specific RemotePAD in GAME mode.
-        // Windows HID log: A=1, B=2, X=4, Y=3.
-        switch characters {
-        case "1":
-            return .playPause
-        case "2":
-            return .toggleControls
-        case "4":
-            return .toggleRecordingPause
-        case "3":
-            return .toggleRecording
-        default:
-            break
-        }
-
-        // Use HID usage too, in case iOS doesn't provide characters for the
-        // Bluetooth key event.
-        switch key.keyCode {
-        case .keyboard1:
-            return .playPause
-        case .keyboard2:
-            return .toggleControls
-        case .keyboard4:
-            return .toggleRecordingPause
-        case .keyboard3:
-            return .toggleRecording
-        default:
-            break
-        }
-
-        // Secondary compatibility mappings for other RemotePAD modes/models.
+        // Secondary compatibility mappings for other modes/models.
         switch characters {
         case "r", "u", "a":
             return .playPause
@@ -464,19 +516,9 @@ final class RemoteKeyView: UIView {
     }
 
     private func action(for code: GCKeyCode) -> RemoteAction? {
-        // Same measured GAME-mode contract through GameController's keyboard
-        // API. Apple exposes the top-row number keys as one/two/three/four.
-        switch code {
-        case .one:
-            return .playPause
-        case .two:
-            return .toggleControls
-        case .four:
-            return .toggleRecordingPause
-        case .three:
-            return .toggleRecording
-        default:
-            break
+        let raw = Int(code.rawValue)
+        if let measured = measuredButtonAction(raw: raw) {
+            return measured
         }
 
         // Secondary compatibility mappings.
