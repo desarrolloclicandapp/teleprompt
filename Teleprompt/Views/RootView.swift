@@ -7,7 +7,6 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var query = ""
     @State private var sortNewest = true
-    @State private var showingNew = false
     @State private var showingImporter = false
     @State private var selectedScript: Script?
     @State private var importError: String?
@@ -53,10 +52,10 @@ struct RootView: View {
             .searchable(text: $query, prompt: "Buscar guiones")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button { showingImporter = true } label: { Label("Importar archivos", systemImage: "doc.badge.plus") }
-                        Button { showingNew = true } label: { Label("Crear guion", systemImage: "square.and.pencil") }
-                    } label: { Image(systemName: "plus") }
+                    Button { showingImporter = true } label: {
+                        Image(systemName: "doc.badge.plus")
+                    }
+                    .accessibilityLabel("Importar archivos")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -66,7 +65,6 @@ struct RootView: View {
                 }
             }
             .sheet(item: $selectedScript) { script in ScriptEditorView(script: script) }
-            .sheet(isPresented: $showingNew) { ScriptEditorView(script: library.add()) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: DocumentImporter.supportedTypes, allowsMultipleSelection: true) { result in
                 switch result {
                 case .success(let urls):
