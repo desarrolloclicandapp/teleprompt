@@ -11,8 +11,9 @@ struct TeleprompterView: View {
     @State var joystickInput: CGPoint = .zero
     @State var lastRemoteActionKey: String?
     @State var lastRemoteActionAt = Date.distantPast
+    @State var lastJoystickSpeedChangeAt = Date.distantPast
     @State var isPlaying = false
-    @State var speed: Double = 100
+    @State var speed: Double = 200
     @State var fontSize: Double = 26
     @State var mirrorHorizontal = false
     @State var mirrorVertical = false
@@ -34,10 +35,32 @@ struct TeleprompterView: View {
     @State var textDragStartOffset: CGFloat?
     @State var cameraSideIsTrailing = true
 
-    let minimumSpeed = 70.0
-    let maximumSpeed = 800.0
+    let minimumSpeed = 200.0
+    let maximumSpeed = 1500.0
+    let speedLevelCount = 50
     let referenceFontSize: CGFloat = 42
     let portraitControlHeight: CGFloat = 228
+
+    var speedLevelStep: Double {
+        (maximumSpeed - minimumSpeed) / Double(speedLevelCount - 1)
+    }
+
+    var speedLevel: Int {
+        nearestSpeedLevel(for: speed)
+    }
+
+    func nearestSpeedLevel(for value: Double) -> Int {
+        let index = Int(((value - minimumSpeed) / speedLevelStep).rounded())
+        return min(speedLevelCount, max(1, index + 1))
+    }
+
+    func speedForLevel(_ level: Int) -> Double {
+        let clampedLevel = min(speedLevelCount, max(1, level))
+        return (
+            minimumSpeed
+            + Double(clampedLevel - 1) * speedLevelStep
+        ).rounded()
+    }
 
     var maxScrollOffset: CGFloat {
         max(0, contentHeight - viewportHeight)
