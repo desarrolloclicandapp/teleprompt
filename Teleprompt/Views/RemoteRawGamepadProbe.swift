@@ -98,7 +98,7 @@ struct RemoteRawGamepadProbe: UIViewRepresentable {
                     Task { @MainActor in
                         RemoteInputDiagnostics.shared.log(
                             "GC-BUTTON",
-                            "names=\(names) value=\(String(format: \"%.3f\", value)) pressed=\(pressed)"
+                            "names=\(names) value=\(String(format: "%.3f", value)) pressed=\(pressed)"
                         )
                     }
                 }
@@ -110,7 +110,7 @@ struct RemoteRawGamepadProbe: UIViewRepresentable {
                     Task { @MainActor in
                         RemoteInputDiagnostics.shared.log(
                             "GC-DPAD",
-                            "names=\(names) x=\(String(format: \"%.3f\", x)) y=\(String(format: \"%.3f\", y))"
+                            "names=\(names) x=\(String(format: "%.3f", x)) y=\(String(format: "%.3f", y))"
                         )
                     }
                 }
@@ -122,7 +122,7 @@ struct RemoteRawGamepadProbe: UIViewRepresentable {
                     Task { @MainActor in
                         RemoteInputDiagnostics.shared.log(
                             "GC-AXIS",
-                            "names=\(names) value=\(String(format: \"%.3f\", value))"
+                            "names=\(names) value=\(String(format: "%.3f", value))"
                         )
                     }
                 }
@@ -130,9 +130,10 @@ struct RemoteRawGamepadProbe: UIViewRepresentable {
         }
 
         private func unbind(_ controller: GCController) {
+            let vendor = controller.vendorName ?? "unknown"
             RemoteInputDiagnostics.shared.log(
                 "GC-DISCONNECT",
-                "vendor=\(controller.vendorName ?? \"unknown\") category=\(controller.productCategory)"
+                "vendor=\(vendor) category=\(controller.productCategory)"
             )
             clearHandlers(controller)
             bound.removeValue(forKey: ObjectIdentifier(controller))
