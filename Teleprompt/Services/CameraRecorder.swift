@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 import Photos
 import UIKit
@@ -7,17 +7,42 @@ import UIKit
 final class CameraRecorder: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
+    private let sessionQueue = DispatchQueue(label: "com.viraltia.teleprompt.camera-session")
 
     @Published private(set) var isRecording = false
     @Published private(set) var isPaused = false
+    @Published private(set) var isReady = false
+    @Published private(set) var isProcessing = false
     @Published private(set) var savedToPhotos = false
     @Published var authorizationMessage: String?
 
     private var recordingURLs: [URL] = []
     private var shouldFinalizeAfterStop = false
     private var isFinalizing = false
+    private var isPreparing = false
+    private var isStoppingSegment = false
+    private var shouldResumeAfterStop = false
+    private var pendingResumeOrientation: UIInterfaceOrientation = .portrait
 
     func prepare() async {
+        if isReady {
+            await startCaptureSessionIfNeeded()
+            return
+        }
+
+        if isPreparing {
+            for _ in 0..<200 where isPreparing {
+                try? await Task.sleep(for: .milliseconds(25))
+            }
+            if isReady {
+                await startCaptureSessionIfNeeded()
+            }
+            return
+        }
+
+        isPreparing = true
+        defer { isPreparing = false }
+
         let camera = await AVCaptureDevice.requestAccess(for: .video)
         let microphone = await AVCaptureDevice.requestAccess(for: .audio)
         guard camera && microphone else {
@@ -25,37 +50,52 @@ final class CameraRecorder: NSObject, ObservableObject {
             return
         }
 
-        if !session.inputs.isEmpty {
-            if !session.isRunning { session.startRunning() }
-            return
-        }
+        if session.inputs.isEmpty {
+            session.beginConfiguration()
+            session.sessionPreset = .high
+            defer { session.commitConfiguration() }
 
-        session.beginConfiguration()
-        session.sessionPreset = .high
-        defer { session.commitConfiguration() }
+            guard let device = AVCaptureDevice.default(
+                .builtInWideAngleCamera,
+                for: .video,
+                position: .front
+            ),
+            let videoInput = try? AVCaptureDeviceInput(device: device),
+            session.canAddInput(videoInput) else {
+                authorizationMessage = "No se pudo abrir la cámara."
+                return
+            }
+            session.addInput(videoInput)
 
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let videoInput = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(videoInput) else {
-            authorizationMessage = "No se pudo abrir la cámara."
-            return
-        }
-        session.addInput(videoInput)
+            if let audio = AVCaptureDevice.default(for: .audio),
+               let audioInput = try? AVCaptureDeviceInput(device: audio),
+               session.canAddInput(audioInput) {
+                session.addInput(audioInput)
+            }
 
-        if let audio = AVCaptureDevice.default(for: .audio),
-           let audioInput = try? AVCaptureDeviceInput(device: audio),
-           session.canAddInput(audioInput) {
-            session.addInput(audioInput)
-        }
-
-        if session.canAddOutput(movieOutput) {
+            if session.canAddOutput(movieOutput) {
+                session.addOutput(movieOutput)
+            }
+        } else if !session.outputs.contains(where: { $0 === movieOutput }),
+                  session.canAddOutput(movieOutput) {
+            session.beginConfiguration()
             session.addOutput(movieOutput)
+            session.commitConfiguration()
         }
 
-        Task { self.session.startRunning() }
+        guard session.outputs.contains(where: { $0 === movieOutput }) else {
+            authorizationMessage = "No se pudo preparar la salida de video."
+            return
+        }
+
+        isReady = true
+        authorizationMessage = nil
+        await startCaptureSessionIfNeeded()
     }
 
     func toggleRecording(interfaceOrientation: UIInterfaceOrientation = .portrait) {
+        guard !isProcessing else { return }
+
         if isRecording {
             stopRecording(finalizeSession: true)
         } else {
@@ -64,29 +104,46 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     func togglePauseResume(interfaceOrientation: UIInterfaceOrientation = .portrait) {
-        guard isRecording else { return }
+        guard isRecording, !isFinalizing, !isProcessing else { return }
+        pendingResumeOrientation = interfaceOrientation
+
         if isPaused {
             isPaused = false
-            startRecordingSegment(interfaceOrientation: interfaceOrientation)
+
+            if isStoppingSegment || movieOutput.isRecording {
+                shouldResumeAfterStop = true
+            } else {
+                startRecordingSegment(interfaceOrientation: interfaceOrientation)
+            }
         } else {
             isPaused = true
+            shouldResumeAfterStop = false
             stopRecording(finalizeSession: false)
         }
     }
 
     func stopRecordingSession() {
-        guard isRecording else { return }
+        guard isRecording, !isProcessing else { return }
         isPaused = false
+        shouldResumeAfterStop = false
         stopRecording(finalizeSession: true)
     }
 
     func stopRecordingSessionAndWait() async {
-        guard isRecording else { return }
-        isPaused = false
-        stopRecording(finalizeSession: true)
+        if isRecording && !isProcessing {
+            isPaused = false
+            shouldResumeAfterStop = false
+            stopRecording(finalizeSession: true)
+        }
+
+        guard isRecording || isProcessing else { return }
 
         for _ in 0..<300 {
-            if !isRecording && !shouldFinalizeAfterStop && !isFinalizing {
+            if !isRecording,
+               !isProcessing,
+               !shouldFinalizeAfterStop,
+               !isFinalizing,
+               !isStoppingSegment {
                 break
             }
             try? await Task.sleep(for: .milliseconds(50))
@@ -94,19 +151,30 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     private func startSession(interfaceOrientation: UIInterfaceOrientation) {
+        guard !isProcessing else { return }
+        guard isReady else {
+            authorizationMessage = "Espera a que la cámara termine de prepararse antes de grabar."
+            return
+        }
+
         isRecording = true
         isPaused = false
+        isProcessing = false
         shouldFinalizeAfterStop = false
         isFinalizing = false
+        isStoppingSegment = false
+        shouldResumeAfterStop = false
+        pendingResumeOrientation = interfaceOrientation
         recordingURLs.removeAll()
         startRecordingSegment(interfaceOrientation: interfaceOrientation)
     }
 
     private func startRecordingSegment(interfaceOrientation: UIInterfaceOrientation) {
-        guard isRecording, !isPaused else { return }
-        if movieOutput.isRecording { return }
+        guard isRecording, !isPaused, !isStoppingSegment, !isFinalizing, !isProcessing else { return }
+        guard !movieOutput.isRecording else { return }
 
-        if let connection = movieOutput.connection(with: .video), connection.isVideoOrientationSupported {
+        if let connection = movieOutput.connection(with: .video),
+           connection.isVideoOrientationSupported {
             switch interfaceOrientation {
             case .landscapeLeft:
                 connection.videoOrientation = .landscapeLeft
@@ -118,15 +186,22 @@ final class CameraRecorder: NSObject, ObservableObject {
                 connection.videoOrientation = .portrait
             }
         }
+
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let url = tmpDir.appendingPathComponent("Take-\(Int(Date().timeIntervalSince1970)).mov")
+        let url = tmpDir.appendingPathComponent("Take-\(UUID().uuidString).mov")
         movieOutput.startRecording(to: url, recordingDelegate: self)
         savedToPhotos = false
     }
 
     private func stopRecording(finalizeSession: Bool) {
         shouldFinalizeAfterStop = shouldFinalizeAfterStop || finalizeSession
+        if finalizeSession {
+            isProcessing = true
+            shouldResumeAfterStop = false
+        }
+
         if movieOutput.isRecording {
+            isStoppingSegment = true
             movieOutput.stopRecording()
             return
         }
@@ -139,16 +214,19 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     private func finalizeSessionIfNeeded() async {
-        guard !isFinalizing else { return }
-        guard shouldFinalizeAfterStop else { return }
+        guard !isFinalizing, shouldFinalizeAfterStop else { return }
 
         isFinalizing = true
+        isProcessing = true
         shouldFinalizeAfterStop = false
+        shouldResumeAfterStop = false
 
         defer {
             isFinalizing = false
+            isProcessing = false
             isRecording = false
             isPaused = false
+            isStoppingSegment = false
             clearTemporarySegments()
         }
 
@@ -172,12 +250,12 @@ final class CameraRecorder: NSObject, ObservableObject {
         guard recordingURLs.count > 1 else { return recordingURLs.first }
 
         let composition = AVMutableComposition()
-        guard
-            let destinationVideo = composition.addMutableTrack(
-                withMediaType: .video,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            )
-        else { return nil }
+        guard let destinationVideo = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            return nil
+        }
 
         let destinationAudio = composition.addMutableTrack(
             withMediaType: .audio,
@@ -185,6 +263,8 @@ final class CameraRecorder: NSObject, ObservableObject {
         )
 
         var cursor = CMTime.zero
+        var appliedVideoTransform = false
+
         for url in recordingURLs {
             let asset = AVURLAsset(url: url)
             do {
@@ -197,6 +277,11 @@ final class CameraRecorder: NSObject, ObservableObject {
                     of: sourceVideo,
                     at: cursor
                 )
+
+                if !appliedVideoTransform {
+                    destinationVideo.preferredTransform = try await sourceVideo.load(.preferredTransform)
+                    appliedVideoTransform = true
+                }
 
                 let sourceAudioTracks = try await asset.loadTracks(withMediaType: .audio)
                 if let sourceAudio = sourceAudioTracks.first,
@@ -215,10 +300,7 @@ final class CameraRecorder: NSObject, ObservableObject {
         }
 
         let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let merged = tmpDir.appendingPathComponent("Take-Merge-\(Int(Date().timeIntervalSince1970)).mov")
-        if FileManager.default.fileExists(atPath: merged.path) {
-            try? FileManager.default.removeItem(at: merged)
-        }
+        let merged = tmpDir.appendingPathComponent("Take-Merge-\(UUID().uuidString).mov")
 
         guard let exporter = AVAssetExportSession(
             asset: composition,
@@ -231,7 +313,9 @@ final class CameraRecorder: NSObject, ObservableObject {
         exporter.outputFileType = .mov
 
         await withCheckedContinuation { continuation in
-            exporter.exportAsynchronously { continuation.resume() }
+            exporter.exportAsynchronously {
+                continuation.resume()
+            }
         }
 
         guard exporter.status == .completed else {
@@ -268,9 +352,24 @@ final class CameraRecorder: NSObject, ObservableObject {
         recordingURLs.removeAll()
     }
 
+    private func startCaptureSessionIfNeeded() async {
+        let captureSession = session
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            sessionQueue.async {
+                if !captureSession.isRunning {
+                    captureSession.startRunning()
+                }
+                continuation.resume()
+            }
+        }
+    }
+
     func stopSession() {
-        if session.isRunning {
-            session.stopRunning()
+        let captureSession = session
+        sessionQueue.async {
+            if captureSession.isRunning {
+                captureSession.stopRunning()
+            }
         }
     }
 }
@@ -283,9 +382,14 @@ extension CameraRecorder: AVCaptureFileOutputRecordingDelegate {
         error: Error?
     ) {
         Task { @MainActor in
+            isStoppingSegment = false
+
             if let error {
                 authorizationMessage = "La grabación falló: \(error.localizedDescription)"
                 try? FileManager.default.removeItem(at: outputFileURL)
+                shouldResumeAfterStop = false
+                shouldFinalizeAfterStop = false
+                isProcessing = false
                 isRecording = false
                 isPaused = false
                 return
@@ -295,6 +399,9 @@ extension CameraRecorder: AVCaptureFileOutputRecordingDelegate {
 
             if shouldFinalizeAfterStop {
                 await finalizeSessionIfNeeded()
+            } else if shouldResumeAfterStop {
+                shouldResumeAfterStop = false
+                startRecordingSegment(interfaceOrientation: pendingResumeOrientation)
             } else {
                 isRecording = true
             }
