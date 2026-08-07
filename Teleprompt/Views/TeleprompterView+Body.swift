@@ -75,24 +75,6 @@ extension TeleprompterView {
                         .padding(.trailing, landscape && !cameraSideIsTrailing ? 8 : 0)
                         .padding(.bottom, 4)
                         .zIndex(5)
-
-                    Button {
-                        showRemoteDiagnostics = true
-                    } label: {
-                        Image(systemName: "ladybug.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .frame(width: 48, height: 48)
-                            .background(.black.opacity(0.78), in: Circle())
-                            .overlay {
-                                Circle().stroke(.white.opacity(0.3), lineWidth: 1)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .padding(.leading, max(16, canvas.safeAreaInsets.leading + 12))
-                    .zIndex(20)
-                    .accessibilityLabel("Abrir diagnóstico RemotePAD")
                 }
 
                 if recorder.isProcessing {
@@ -130,9 +112,6 @@ extension TeleprompterView {
                 mirrorHorizontal: $mirrorHorizontal,
                 mirrorVertical: $mirrorVertical
             )
-        }
-        .sheet(isPresented: $showRemoteDiagnostics) {
-            RemoteInputDiagnosticsView()
         }
         .task(id: showCamera) {
             if showCamera {
