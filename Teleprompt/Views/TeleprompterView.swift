@@ -25,7 +25,6 @@ struct TeleprompterView: View {
     @State var showControls = true
     @State var showCamera = false
     @State var showReaderSettings = false
-    @State var showRemoteDiagnostics = false
     @State var panelSize: CGSize = .zero
     @State var panelCenter: CGPoint = .zero
     @State var canvasSize: CGSize = .zero
