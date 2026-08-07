@@ -138,6 +138,11 @@ final class RemoteKeyView: UIView {
                 continue
             }
 
+            RemoteInputDiagnostics.shared.log(
+                "KEY-RAW",
+                "chars=\(key.charactersIgnoringModifiers.debugDescription) hid=\(key.keyCode.rawValue)"
+            )
+
             let code = key.keyCode
             if isJoystickKey(code) {
                 guard activeUIKitKeyCodes.insert(code).inserted else { continue }
@@ -199,34 +204,42 @@ final class RemoteKeyView: UIView {
     }
 
     @objc private func handlePlayPauseCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "playPause input=\(command.input ?? "nil")")
         onAction?(.playPause)
     }
 
     @objc private func handleToggleControlsCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "toggleControls input=\(command.input ?? "nil")")
         onAction?(.toggleControls)
     }
 
     @objc private func handleRecordingPauseCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "recordingPause input=\(command.input ?? "nil")")
         onAction?(.toggleRecordingPause)
     }
 
     @objc private func handleRecordingCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "recording input=\(command.input ?? "nil")")
         onAction?(.toggleRecording)
     }
 
     @objc private func handleDecreaseSpeedCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "left/decreaseSpeed")
         onAction?(.decreaseSpeed)
     }
 
     @objc private func handleIncreaseSpeedCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "right/increaseSpeed")
         onAction?(.increaseSpeed)
     }
 
     @objc private func handleMoveTextUpCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "up/moveTextUp")
         onAction?(.next)
     }
 
     @objc private func handleMoveTextDownCommand(_ command: UIKeyCommand) {
+        RemoteInputDiagnostics.shared.log("KEY-CMD", "down/moveTextDown")
         onAction?(.previous)
     }
 
@@ -239,6 +252,7 @@ final class RemoteKeyView: UIView {
             queue: .main
         ) { [weak self] notification in
             guard let keyboard = notification.object as? GCKeyboard else { return }
+            RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "connected")
             self?.bindKeyboard(keyboard)
         }
 
@@ -247,6 +261,7 @@ final class RemoteKeyView: UIView {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "disconnected")
             self?.unbindKeyboard()
             self?.bindCoalescedKeyboard()
         }
@@ -292,6 +307,11 @@ final class RemoteKeyView: UIView {
     }
 
     private func handleGameControllerKey(_ code: GCKeyCode, pressed: Bool) {
+        RemoteInputDiagnostics.shared.log(
+            "GC-KEY-RAW",
+            "code=\(code.rawValue) pressed=\(pressed)"
+        )
+
         if isJoystickKey(code) {
             if pressed {
                 activeGameControllerKeyCodes.insert(code)
