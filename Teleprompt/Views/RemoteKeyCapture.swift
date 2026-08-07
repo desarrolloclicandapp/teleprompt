@@ -379,14 +379,14 @@ final class RemoteKeyView: UIView {
 
     private func measuredJoystickAction(raw: Int) -> RemoteAction? {
         switch raw {
-        // Native iPhone log, physical test order Left / Right / Up / Down.
-        // Each direction emits an initial usage plus a distinctive repeat usage.
+        // Native iPhone GAME-mode positions, adjusted from the physical test:
+        // Left = speed up, Right = move text up, Up = speed down, Down = move text down.
         case 115, 109:
-            return .decreaseSpeed
-        case 88, 96:
             return .increaseSpeed
-        case 62, 107:
+        case 88, 96:
             return .next
+        case 62, 107:
+            return .decreaseSpeed
         case 143, 146:
             return .previous
         default:
