@@ -13,6 +13,7 @@ final class RemoteInputDiagnostics: ObservableObject {
     private init() {}
 
     func log(_ source: String, _ message: String) {
+#if DEBUG
         let elapsed = Date().timeIntervalSince(startedAt)
         let line = String(format: "%8.3fs [%@] %@", elapsed, source, message)
         entries.append(line)
@@ -20,6 +21,7 @@ final class RemoteInputDiagnostics: ObservableObject {
             entries.removeFirst(entries.count - maximumEntries)
         }
         print("[RemotePAD RAW] \(line)")
+#endif
     }
 
     func clear() {
@@ -67,7 +69,7 @@ struct RemoteInputDiagnosticsView: View {
             ScrollView {
                 Text(
                     diagnostics.entries.isEmpty
-                        ? "Aún no hay eventos. Pulsa A, B, X, Y y mueve el joystick."
+                        ? String(localized: "Aún no hay eventos. Pulsa A, B, X, Y y mueve el joystick.")
                         : diagnostics.text
                 )
                 .font(.system(.caption2, design: .monospaced))

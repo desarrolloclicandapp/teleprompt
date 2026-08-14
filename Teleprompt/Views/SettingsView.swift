@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var library: ScriptLibrary
     @EnvironmentObject private var drive: DriveSyncCoordinator
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Environment(\.openURL) private var openURL
     @StateObject private var externalFolder = ExternalFolderAccess()
     @StateObject private var google = GoogleOAuth()
@@ -12,6 +13,8 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            MonetizationStatusSection()
+
             Section("Google Drive") {
                 Button {
                     if google.isConnected {
@@ -37,7 +40,8 @@ struct SettingsView: View {
                     }
                 } label: {
                     Label(
-                        drive.folderName.map { "Carpeta de Drive: \($0)" } ?? "Elegir carpeta de Google Drive",
+                        drive.folderName.map { String(format: String(localized: "drive.folder_label_format"), $0) }
+                            ?? String(localized: "drive.choose_folder"),
                         systemImage: "folder.badge.gearshape"
                     )
                 }
@@ -62,12 +66,30 @@ struct SettingsView: View {
             Section("Archivos del iPhone") {
                 Button { showLocalFolderPicker = true } label: {
                     Label(
-                        externalFolder.folderName.map { "Carpeta local: \($0)" } ?? "Elegir carpeta local en Archivos",
+                        externalFolder.folderName.map { String(format: String(localized: "local.folder_label_format"), $0) }
+                            ?? String(localized: "local.choose_folder"),
                         systemImage: "folder"
                     )
                 }
                 if externalFolder.folderName != nil {
                     Button("Desconectar carpeta local", role: .destructive) { externalFolder.clear() }
+
+                    Button {
+                        Task { await externalFolder.sync(library: library) }
+                    } label: {
+                        HStack {
+                            Label("Sincronizar carpeta local", systemImage: "arrow.triangle.2.circlepath")
+                            Spacer()
+                            if externalFolder.isSyncing { ProgressView() }
+                        }
+                    }
+                    .disabled(externalFolder.isSyncing)
+                }
+            }
+
+            if let message = externalFolder.message {
+                Section {
+                    Text(message).font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -82,11 +104,11 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Alcance del MVP") {
+            Section("Funciones incluidas") {
                 Label("TXT, Markdown, PDF y DOCX", systemImage: "doc.text")
                 Label("Descarga manual desde Drive", systemImage: "arrow.down.circle")
                 Label("Lector offline con velocidad manual", systemImage: "play.rectangle")
-                Label("Cámara y voz avanzada: opcionales", systemImage: "ellipsis.circle")
+                Label("Cámara y grabación: opcionales", systemImage: "video")
             }
 
             Section("Información legal") {

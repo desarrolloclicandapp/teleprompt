@@ -10,6 +10,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>es</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleDisplayName</key>
@@ -17,7 +19,7 @@
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.1.0</string>
 	<key>CFBundleVersion</key>
 	<string>2</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -27,7 +29,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Teleprompt necesita la cámara frontal para grabarte mientras lees.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Teleprompt necesita el micrófono para grabar tus videos y seguir tu voz.</string>
+	<string>Teleprompt necesita el micrófono para grabar tus videos.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Teleprompt guarda tus grabaciones en la app Fotos.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
@@ -51,8 +53,6 @@
 			<string>DirectionalGamepad</string>
 		</dict>
 	</array>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Teleprompt usa reconocimiento local para avanzar el guion mientras hablas.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

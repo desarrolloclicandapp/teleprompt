@@ -23,6 +23,7 @@ targets:
       - path: Teleprompt
     resources:
       - path: Teleprompt/PrivacyInfo.xcprivacy
+      - path: Teleprompt/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.viraltia.teleprompt
@@ -34,6 +35,7 @@ targets:
       - package: ZIPFoundation
     scheme:
       gatherCoverageData: true
+      storeKitConfiguration: Teleprompt.storekit
       testTargets:
         - TelepromptTests
   TelepromptTests:

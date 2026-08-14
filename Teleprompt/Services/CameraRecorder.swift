@@ -46,7 +46,7 @@ final class CameraRecorder: NSObject, ObservableObject {
         let camera = await AVCaptureDevice.requestAccess(for: .video)
         let microphone = await AVCaptureDevice.requestAccess(for: .audio)
         guard camera && microphone else {
-            authorizationMessage = "Activa la cámara y el micrófono en Ajustes para grabar."
+            authorizationMessage = String(localized: "camera.permissions_required")
             return
         }
 
@@ -62,7 +62,7 @@ final class CameraRecorder: NSObject, ObservableObject {
             ),
             let videoInput = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(videoInput) else {
-                authorizationMessage = "No se pudo abrir la cámara."
+                authorizationMessage = String(localized: "camera.unavailable")
                 return
             }
             session.addInput(videoInput)
@@ -84,7 +84,7 @@ final class CameraRecorder: NSObject, ObservableObject {
         }
 
         guard session.outputs.contains(where: { $0 === movieOutput }) else {
-            authorizationMessage = "No se pudo preparar la salida de video."
+            authorizationMessage = String(localized: "camera.output_unavailable")
             return
         }
 
@@ -153,7 +153,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     private func startSession(interfaceOrientation: UIInterfaceOrientation) {
         guard !isProcessing else { return }
         guard isReady else {
-            authorizationMessage = "Espera a que la cámara termine de prepararse antes de grabar."
+            authorizationMessage = String(localized: "camera.wait_until_ready")
             return
         }
 
@@ -294,7 +294,7 @@ final class CameraRecorder: NSObject, ObservableObject {
                 }
                 cursor = cursor + duration
             } catch {
-                authorizationMessage = "No se pudieron unir los segmentos de video: \(error.localizedDescription)"
+                authorizationMessage = String(format: String(localized: "camera.merge_segments_error_format"), error.localizedDescription)
                 return nil
             }
         }
@@ -306,7 +306,7 @@ final class CameraRecorder: NSObject, ObservableObject {
             asset: composition,
             presetName: AVAssetExportPresetHighestQuality
         ) else {
-            authorizationMessage = "No se pudo preparar la unión de segmentos."
+            authorizationMessage = String(localized: "camera.merge_unavailable")
             return nil
         }
         exporter.outputURL = merged
@@ -319,7 +319,10 @@ final class CameraRecorder: NSObject, ObservableObject {
         }
 
         guard exporter.status == .completed else {
-            authorizationMessage = "No se pudo unir la grabación: \(exporter.error?.localizedDescription ?? "Error al exportar")"
+            authorizationMessage = String(
+                format: String(localized: "camera.export_error_format"),
+                exporter.error?.localizedDescription ?? String(localized: "camera.export_error")
+            )
             return nil
         }
 
@@ -329,7 +332,7 @@ final class CameraRecorder: NSObject, ObservableObject {
     private func saveToPhotoLibrary(_ fileURL: URL) async {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
-            authorizationMessage = "Permite guardar fotos y videos para enviar la grabación a Fotos."
+            authorizationMessage = String(localized: "camera.photos_permission_required")
             return
         }
 
@@ -341,7 +344,7 @@ final class CameraRecorder: NSObject, ObservableObject {
             authorizationMessage = nil
             try? FileManager.default.removeItem(at: fileURL)
         } catch {
-            authorizationMessage = "No se pudo guardar el video en Fotos: \(error.localizedDescription)"
+            authorizationMessage = String(format: String(localized: "camera.save_error_format"), error.localizedDescription)
         }
     }
 
@@ -385,7 +388,7 @@ extension CameraRecorder: AVCaptureFileOutputRecordingDelegate {
             isStoppingSegment = false
 
             if let error {
-                authorizationMessage = "La grabación falló: \(error.localizedDescription)"
+                authorizationMessage = String(format: String(localized: "camera.recording_error_format"), error.localizedDescription)
                 try? FileManager.default.removeItem(at: outputFileURL)
                 shouldResumeAfterStop = false
                 shouldFinalizeAfterStop = false

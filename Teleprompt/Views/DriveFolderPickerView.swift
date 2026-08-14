@@ -11,7 +11,7 @@ struct DriveFolderPickerView: View {
     @State private var errorMessage: String?
 
     private var currentFolder: DriveFolder {
-        path.last ?? DriveFolder(id: "root", name: "Mi unidad")
+        path.last ?? DriveFolder(id: "root", name: String(localized: "drive.my_drive"))
     }
 
     var body: some View {
@@ -21,7 +21,10 @@ struct DriveFolderPickerView: View {
                     Button {
                         select(currentFolder)
                     } label: {
-                        Label("Usar \(currentFolder.name)", systemImage: "checkmark.circle.fill")
+                        Label(
+                            String(format: String(localized: "drive.use_folder_format"), currentFolder.name),
+                            systemImage: "checkmark.circle.fill"
+                        )
                     }
                     .foregroundStyle(.mint)
                 } footer: {
@@ -87,7 +90,7 @@ struct DriveFolderPickerView: View {
             path = [
                 DriveFolder(
                     id: parentID,
-                    name: drive.folderParentName ?? "Carpeta actual",
+                    name: drive.folderParentName ?? String(localized: "drive.current_folder"),
                     parentID: nil,
                     parentName: nil
                 )

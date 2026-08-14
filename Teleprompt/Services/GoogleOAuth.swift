@@ -33,7 +33,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
     func connect() {
         errorMessage = nil
         guard !clientID.isEmpty, !clientID.contains("REPLACE"), !callbackScheme.isEmpty else {
-            errorMessage = "El Client ID de Google no está configurado correctamente."
+            errorMessage = String(localized: "oauth.invalid_client_id")
             return
         }
         verifier = Self.randomString(length: 64)
@@ -52,21 +52,25 @@ final class GoogleOAuth: NSObject, ObservableObject {
         session = ASWebAuthenticationSession(url: components.url!, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
             guard let self else { return }
             guard let callbackURL else {
-                self.errorMessage = error.map { "No se pudo completar Google Drive: \($0.localizedDescription)" } ?? "Google no devolvió una respuesta."
+                self.errorMessage = error.map {
+                    String(format: String(localized: "oauth.completion_error_format"), $0.localizedDescription)
+                } ?? String(localized: "oauth.no_response")
                 return
             }
             let queryItems = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
             if let authorizationError = queryItems.first(where: { $0.name == "error" })?.value {
                 let description = queryItems.first(where: { $0.name == "error_description" })?.value
                 if authorizationError == "access_denied" {
-                    self.errorMessage = "Google bloqueó el acceso. En Google Cloud agrega tu cuenta en OAuth consent screen > Test users o publica el consentimiento."
+                    self.errorMessage = String(localized: "oauth.access_denied")
                 } else {
-                    self.errorMessage = description.map { "Google rechazó la autorización: \($0)" } ?? "Google rechazó la autorización (\(authorizationError))."
+                    self.errorMessage = description.map {
+                        String(format: String(localized: "oauth.authorization_error_format"), $0)
+                    } ?? String(format: String(localized: "oauth.authorization_rejected_format"), authorizationError)
                 }
                 return
             }
             guard let code = queryItems.first(where: { $0.name == "code" })?.value else {
-                self.errorMessage = "Google no devolvió un código de autorización."
+                self.errorMessage = String(localized: "oauth.no_code")
                 return
             }
             Task { await self.exchange(code: code) }
@@ -86,14 +90,15 @@ final class GoogleOAuth: NSObject, ObservableObject {
     private func exchange(code: String) async {
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = [
+        request.httpBody = URLFormEncoder.encode([
             "client_id": clientID,
             "code": code,
             "code_verifier": verifier,
             "grant_type": "authorization_code",
             "redirect_uri": redirectURI
-        ].map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }.joined(separator: "&").data(using: .utf8)
+        ])
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw DriveError.http((response as? HTTPURLResponse)?.statusCode ?? -1) }

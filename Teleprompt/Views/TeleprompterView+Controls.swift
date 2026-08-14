@@ -96,9 +96,11 @@ extension TeleprompterView {
                     .buttonStyle(.bordered)
                     .tint(recorder.isPaused ? .green : .yellow)
                     .accessibilityLabel(
-                        recorder.isPaused
-                            ? "Reanudar grabación"
-                            : "Pausar grabación"
+                        Text(
+                            recorder.isPaused
+                                ? String(localized: "Reanudar grabación")
+                                : String(localized: "Pausar grabación")
+                        )
                     )
                 }
 
@@ -131,7 +133,11 @@ extension TeleprompterView {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
-                .accessibilityLabel(showCamera ? "Apagar cámara" : "Encender cámara")
+                .accessibilityLabel(
+                    Text(showCamera
+                        ? String(localized: "Apagar cámara")
+                        : String(localized: "Encender cámara"))
+                )
 
                 if showCamera {
                     Button {
@@ -152,9 +158,11 @@ extension TeleprompterView {
                     .buttonStyle(.borderedProminent)
                     .tint(recorder.isRecording ? .red : .mint)
                     .accessibilityLabel(
-                        recorder.isRecording
-                            ? "Detener grabación"
-                            : "Iniciar grabación"
+                        Text(
+                            recorder.isRecording
+                                ? String(localized: "Detener grabación")
+                                : String(localized: "Iniciar grabación")
+                        )
                     )
                 }
 
@@ -196,7 +204,11 @@ extension TeleprompterView {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.mint)
-                .accessibilityLabel(isPlaying ? "Pausar lectura" : "Iniciar lectura")
+                .accessibilityLabel(
+                    Text(isPlaying
+                        ? String(localized: "Pausar lectura")
+                        : String(localized: "Iniciar lectura"))
+                )
             }
 
             HStack(spacing: 10) {

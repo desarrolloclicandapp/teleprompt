@@ -7,7 +7,6 @@ struct TeleprompterView: View {
     let script: Script
 
     @StateObject var recorder = CameraRecorder()
-    @StateObject var mediaRemote = MediaRemoteController()
     @State var joystickInput: CGPoint = .zero
     @State var lastRemoteActionKey: String?
     @State var lastRemoteActionAt = Date.distantPast

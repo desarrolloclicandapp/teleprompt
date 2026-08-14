@@ -22,6 +22,29 @@ workflows:
         script: brew install xcodegen
       - name: Generate Xcode project
         script: xcodegen generate
+      - name: Resolve Swift packages
+        script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: Run unit tests on an available iPhone simulator
+        script: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for device in devices:
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          raise SystemExit("No available iPhone simulator found")
+          ')
+          xcrun simctl boot "$UDID" || true
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "id=$UDID" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
       - name: Set ordered App Store build number and encryption declaration
         script: |
           BUILD_COUNTER="${BUILD_NUMBER:-1}"

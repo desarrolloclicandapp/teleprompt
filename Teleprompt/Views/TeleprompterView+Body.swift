@@ -32,10 +32,6 @@ extension TeleprompterView {
                 .frame(width: 1, height: 1)
                 .opacity(0.01)
 
-                RemoteRawGamepadProbe()
-                    .frame(width: 1, height: 1)
-                    .opacity(0.01)
-
                 RemoteMediaCommandCapture { action in
                     RemoteInputDiagnostics.shared.log("MEDIA", action.diagnosticsName)
                     handleRemoteAction(action)

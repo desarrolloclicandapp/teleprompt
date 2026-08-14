@@ -1,0 +1,27 @@
+{
+  "products" : [
+    {
+      "displayPrice" : "0",
+      "familyShareable" : false,
+      "internalID" : "trial7days",
+      "locale" : "en_US",
+      "productID" : "com.APP.trial7days",
+      "referenceName" : "7 Day Trial",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "lifetime",
+      "locale" : "en_US",
+      "productID" : "com.APP.lifetime",
+      "referenceName" : "Lifetime Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "appStoreCountry" : "USA",
+    "storeKitErrors" : []
+  },
+  "version" : 3
+}
