@@ -20,12 +20,17 @@ final class CameraRecorder: NSObject, ObservableObject {
     private var shouldFinalizeAfterStop = false
     private var isFinalizing = false
     private var isPreparing = false
+    private var isShuttingDown = false
+    private var isStoppingAndWaiting = false
     private var isStoppingSegment = false
     private var shouldResumeAfterStop = false
     private var pendingResumeOrientation: UIInterfaceOrientation = .portrait
 
     func prepare() async {
+        isShuttingDown = false
+
         if isReady {
+            guard !Task.isCancelled else { return }
             await startCaptureSessionIfNeeded()
             return
         }
@@ -45,6 +50,7 @@ final class CameraRecorder: NSObject, ObservableObject {
 
         let camera = await AVCaptureDevice.requestAccess(for: .video)
         let microphone = await AVCaptureDevice.requestAccess(for: .audio)
+        guard !Task.isCancelled, !isShuttingDown else { return }
         guard camera && microphone else {
             authorizationMessage = String(localized: "camera.permissions_required")
             return
@@ -90,6 +96,7 @@ final class CameraRecorder: NSObject, ObservableObject {
 
         isReady = true
         authorizationMessage = nil
+        guard !Task.isCancelled, !isShuttingDown else { return }
         await startCaptureSessionIfNeeded()
     }
 
@@ -130,6 +137,16 @@ final class CameraRecorder: NSObject, ObservableObject {
     }
 
     func stopRecordingSessionAndWait() async {
+        guard !isStoppingAndWaiting else {
+            for _ in 0..<300 where isStoppingAndWaiting {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            return
+        }
+
+        isStoppingAndWaiting = true
+        defer { isStoppingAndWaiting = false }
+
         if isRecording && !isProcessing {
             isPaused = false
             shouldResumeAfterStop = false
@@ -148,6 +165,12 @@ final class CameraRecorder: NSObject, ObservableObject {
             }
             try? await Task.sleep(for: .milliseconds(50))
         }
+    }
+
+    func shutdownSessionAndWait() async {
+        isShuttingDown = true
+        await stopRecordingSessionAndWait()
+        stopSession()
     }
 
     private func startSession(interfaceOrientation: UIInterfaceOrientation) {

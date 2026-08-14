@@ -169,11 +169,20 @@ extension TeleprompterView {
         if showCamera {
             showCamera = false
             Task {
-                await recorder.stopRecordingSessionAndWait()
-                recorder.stopSession()
+                await recorder.shutdownSessionAndWait()
             }
         } else {
             showCamera = true
+        }
+    }
+
+    func closeTeleprompter() {
+        guard !isClosingTeleprompter else { return }
+        isClosingTeleprompter = true
+
+        Task { @MainActor in
+            await recorder.shutdownSessionAndWait()
+            dismiss()
         }
     }
 

@@ -106,7 +106,7 @@ extension TeleprompterView {
 
                 Button {
                     guard !recorder.isProcessing else { return }
-                    dismiss()
+                    closeTeleprompter()
                 } label: {
                     Image(systemName: "xmark")
                         .frame(width: 42, height: 42)
@@ -114,6 +114,7 @@ extension TeleprompterView {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Cerrar teleprompter")
+                .disabled(isClosingTeleprompter)
 
                 Button {
                     resetReader()

@@ -115,12 +115,13 @@ extension TeleprompterView {
             }
         }
         .onDisappear {
+            guard !isClosingTeleprompter else { return }
+            isClosingTeleprompter = true
             cancelCountdown()
             joystickInput = .zero
 
             Task {
-                await recorder.stopRecordingSessionAndWait()
-                recorder.stopSession()
+                await recorder.shutdownSessionAndWait()
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showCamera)
