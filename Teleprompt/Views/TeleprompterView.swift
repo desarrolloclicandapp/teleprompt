@@ -24,7 +24,6 @@ struct TeleprompterView: View {
     @State var countdownGeneration = UUID()
     @State var showControls = true
     @State var showCamera = false
-    @State var isClosingTeleprompter = false
     @State var showReaderSettings = false
     @State var panelSize: CGSize = .zero
     @State var panelCenter: CGPoint = .zero

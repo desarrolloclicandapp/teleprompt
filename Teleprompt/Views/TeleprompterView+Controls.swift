@@ -114,7 +114,6 @@ extension TeleprompterView {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Cerrar teleprompter")
-                .disabled(isClosingTeleprompter)
 
                 Button {
                     resetReader()

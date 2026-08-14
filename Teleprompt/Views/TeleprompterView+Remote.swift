@@ -177,7 +177,6 @@ extension TeleprompterView {
     }
 
     func closeTeleprompter() {
-        guard !isClosingTeleprompter else { return }
         // Dismiss first, matching the stable behavior from main. The recorder
         // is shut down from the view's onDisappear handler after SwiftUI has
         // removed the teleprompter from the presentation hierarchy.

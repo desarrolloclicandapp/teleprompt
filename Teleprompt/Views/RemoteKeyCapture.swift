@@ -102,8 +102,8 @@ final class RemoteKeyView: UIView {
         super.didMoveToWindow()
 
         guard window != nil else {
-            stopKeyboardCapture()
-            clearPressedKeys()
+            stopKeyboardCapture(notify: false)
+            clearPressedKeys(notify: false)
             return
         }
 
@@ -277,7 +277,7 @@ final class RemoteKeyView: UIView {
         }
     }
 
-    private func stopKeyboardCapture() {
+    private func stopKeyboardCapture(notify: Bool = true) {
         if let keyboardConnectObserver {
             NotificationCenter.default.removeObserver(keyboardConnectObserver)
             self.keyboardConnectObserver = nil
@@ -288,7 +288,7 @@ final class RemoteKeyView: UIView {
             self.keyboardDisconnectObserver = nil
         }
 
-        unbindKeyboard()
+        unbindKeyboard(notify: notify)
     }
 
     private func bindCoalescedKeyboard() {
@@ -309,14 +309,17 @@ final class RemoteKeyView: UIView {
         }
     }
 
-    private func unbindKeyboard() {
+    private func unbindKeyboard(notify: Bool = true) {
         boundKeyboardInput?.keyChangedHandler = nil
         boundKeyboardInput = nil
         activeGameControllerKeyCodes.removeAll()
-        emitStandardKeyboardJoystick()
+        if notify {
+            emitStandardKeyboardJoystick()
+        }
     }
 
     private func handleGameControllerKey(_ code: GCKeyCode, pressed: Bool) {
+        guard window != nil else { return }
         let raw = Int(code.rawValue)
         RemoteInputDiagnostics.shared.log(
             "GC-KEY-RAW",
@@ -430,10 +433,12 @@ final class RemoteKeyView: UIView {
         return releasedJoystick
     }
 
-    private func clearPressedKeys() {
+    private func clearPressedKeys(notify: Bool = true) {
         activeUIKitKeyCodes.removeAll()
         activeGameControllerKeyCodes.removeAll()
-        emitStandardKeyboardJoystick()
+        if notify {
+            emitStandardKeyboardJoystick()
+        }
     }
 
     private func isStandardJoystickKey(_ code: UIKeyboardHIDUsage) -> Bool {

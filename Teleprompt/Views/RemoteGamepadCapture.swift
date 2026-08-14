@@ -134,7 +134,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
                 clearHandlers(from: binding.controller)
             }
             bindings.removeAll()
-            onAction(.joystick(x: 0, y: 0))
         }
 
         func refreshControllers() {
@@ -338,6 +337,7 @@ struct RemoteGamepadCapture: UIViewRepresentable {
             _ element: GCControllerElement,
             controllerID: ObjectIdentifier
         ) {
+            guard isRunning else { return }
             guard let binding = bindings[controllerID] else { return }
 
             if let button = element as? GCControllerButtonInput {

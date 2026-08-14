@@ -98,7 +98,8 @@ struct RemoteMediaCommandCapture: UIViewRepresentable {
         ) -> (command: MPRemoteCommand, target: Any) {
             let target = command.addTarget { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.onAction(action)
+                    guard let self, self.isRunning else { return }
+                    self.onAction(action)
                 }
                 return .success
             }
