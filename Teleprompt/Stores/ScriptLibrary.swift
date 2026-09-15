@@ -83,6 +83,12 @@ final class ScriptLibrary: ObservableObject {
         save()
     }
 
+    func resetToInitialState() {
+        scripts = [ScriptSeed.welcome]
+        storageMessage = nil
+        save()
+    }
+
     func clearStorageMessage() {
         storageMessage = nil
     }

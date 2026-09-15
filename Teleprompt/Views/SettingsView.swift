@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var showLocalFolderPicker = false
     @State private var showDriveFolderPicker = false
     @State private var openPickerAfterConnection = false
+    @State private var showLocalDataResetConfirmation = false
 
     var body: some View {
         Form {
@@ -111,6 +112,14 @@ struct SettingsView: View {
                 Label("Cámara y grabación: opcionales", systemImage: "video")
             }
 
+            Section("Datos de este dispositivo") {
+                Button("Eliminar datos locales", role: .destructive) {
+                    showLocalDataResetConfirmation = true
+                }
+            } footer: {
+                Text("Elimina los guiones guardados en este iPhone y desconecta Google Drive y las carpetas vinculadas. No elimina compras de Apple, archivos de Google Drive ni vídeos de Fotos.")
+            }
+
             Section("Información legal") {
                 NavigationLink {
                     PrivacyPolicyView()
@@ -141,6 +150,20 @@ struct SettingsView: View {
                 Task { await drive.sync(library: library) }
             }
         }
+        .alert("¿Eliminar los datos locales?", isPresented: $showLocalDataResetConfirmation) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Eliminar datos", role: .destructive) {
+                resetLocalData()
+            }
+        } message: {
+            Text("Esta acción elimina los guiones guardados en este iPhone y desconecta las fuentes vinculadas. No se puede deshacer.")
+        }
+    }
 
+    private func resetLocalData() {
+        library.resetToInitialState()
+        drive.clearSelectedFolder()
+        externalFolder.clear()
+        google.disconnect()
     }
 }

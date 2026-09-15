@@ -236,6 +236,22 @@ struct MonetizationStatusSection: View {
 
             if !purchaseManager.isLifetimeUnlocked {
                 Button {
+                    Task { await purchaseManager.purchaseLifetime() }
+                } label: {
+                    HStack {
+                        Text("Adquirir acceso de por vida")
+                        Spacer()
+                        if let product = purchaseManager.lifetimeProduct {
+                            Text(product.displayPrice)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(purchaseManager.lifetimeProduct == nil || purchaseManager.purchaseFlowState.blocksPurchase)
+
+                Button {
                     Task { await purchaseManager.restorePurchases() }
                 } label: {
                     HStack {

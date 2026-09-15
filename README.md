@@ -2,7 +2,7 @@
 
 Aplicacion nativa de teleprompter para iPhone, sin suscripciones y con biblioteca local. Se genera con XcodeGen y se compila en Codemagic.
 
-## MVP implementado
+## Funcionalidades
 
 - Biblioteca local persistente de guiones.
 - Busqueda, orden y eliminacion.
@@ -30,7 +30,7 @@ El Bundle ID es `com.viraltia.teleprompt`. Codemagic usa `codemagic.yaml` para g
 
 ## Google Drive
 
-La aplicacion usa `drive.readonly` y necesita el Client ID de iOS en `Teleprompt/Info.plist`. Para descargar manualmente se conecta Google Drive y se indica el ID de la carpeta. La sincronizacion bidireccional, el seguimiento de cambios y la subida de videos no forman parte del MVP.
+La aplicacion usa `drive.readonly` y necesita el Client ID de iOS en `Teleprompt/Info.plist`. Para descargar manualmente se conecta Google Drive y se indica el ID de la carpeta. La sincronizacion bidireccional, el seguimiento de cambios y la subida de videos no están incluidos en esta versión.
 
 ## Monetizacion StoreKit 2
 
