@@ -11,7 +11,7 @@ struct MonetizationGateView<Content: View>: View {
 
     var body: some View {
         Group {
-            switch purchaseManager.displayedState {
+            switch purchaseManager.state {
             case .loading:
                 MonetizationLoadingView()
             case .trialNotStarted:
@@ -263,14 +263,6 @@ struct MonetizationStatusSection: View {
                     }
                 }
                 .disabled(purchaseManager.purchaseFlowState.blocksPurchase)
-            }
-
-            if purchaseManager.canPreviewTrialIntroduction {
-                Button {
-                    purchaseManager.showTrialIntroductionPreview()
-                } label: {
-                    Label("Vista previa de pantalla de prueba", systemImage: "camera.viewfinder")
-                }
             }
 
             if case .restoreNotFound = purchaseManager.purchaseFlowState {
