@@ -16,11 +16,11 @@ final class StoreKitConfigurationTests: XCTestCase {
         session = try SKTestSession(contentsOf: configurationURL)
         session.resetToDefaultState()
         session.disableDialogs = true
-        try session.clearTransactions()
+        session.clearTransactions()
     }
 
     override func tearDownWithError() throws {
-        try session?.clearTransactions()
+        session?.clearTransactions()
         session = nil
     }
 
@@ -41,7 +41,7 @@ final class StoreKitConfigurationTests: XCTestCase {
     }
 
     func testLifetimeProductCreatesAPersistedStoreKitEntitlement() async throws {
-        try session.buyProduct(identifier: StoreKitConfiguration.lifetimeProductID)
+        try await session.buyProduct(identifier: StoreKitConfiguration.lifetimeProductID)
 
         let purchases = session.allTransactions()
         XCTAssertEqual(purchases.count, 1)
@@ -51,10 +51,10 @@ final class StoreKitConfigurationTests: XCTestCase {
     }
 
     func testRefundedLifetimeIsNoLongerAnEntitlement() async throws {
-        try session.buyProduct(identifier: StoreKitConfiguration.lifetimeProductID)
+        try await session.buyProduct(identifier: StoreKitConfiguration.lifetimeProductID)
         let transaction = try XCTUnwrap(session.allTransactions().first)
 
-        try session.refundTransaction(identifier: transaction.identifier)
+        try await session.refundTransaction(identifier: transaction.identifier)
 
         let entitlementIDs = await currentEntitlementIDs()
         XCTAssertFalse(entitlementIDs.contains(StoreKitConfiguration.lifetimeProductID))
