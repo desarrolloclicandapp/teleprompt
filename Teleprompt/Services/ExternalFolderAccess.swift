@@ -25,7 +25,10 @@ final class ExternalFolderAccess: ObservableObject {
     func resolveFolder() -> URL? {
         guard let bookmark = UserDefaults.standard.data(forKey: bookmarkKey) else { return nil }
         var stale = false
-        guard let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        guard let url = try? URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else {
+            clear()
+            return nil
+        }
         if stale { rememberFolder(url) }
         folderName = url.lastPathComponent
         return url

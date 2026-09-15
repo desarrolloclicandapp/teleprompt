@@ -93,32 +93,42 @@ final class DriveSyncCoordinator: ObservableObject {
                 activeToken = renewed
                 files = try await GoogleDriveService.shared.listScriptsRecursively(in: folderID, accessToken: activeToken)
             }
+            var imported = 0
+            var skipped = 0
             for file in files {
-                let data: Data
                 do {
-                    data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
-                } catch {
-                    guard case DriveError.http(401) = error,
-                          let refresh = KeychainStore.get(refreshKey),
-                          let clientID = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String else {
-                        throw error
+                    let data: Data
+                    do {
+                        data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
+                    } catch {
+                        guard case DriveError.http(401) = error,
+                              let refresh = KeychainStore.get(refreshKey),
+                              let clientID = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_CLIENT_ID") as? String else {
+                            throw error
+                        }
+                        let renewed = try await GoogleDriveService.shared.refreshAccessToken(refreshToken: refresh, clientID: clientID)
+                        KeychainStore.set(renewed, key: tokenKey)
+                        activeToken = renewed
+                        data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
                     }
-                    let renewed = try await GoogleDriveService.shared.refreshAccessToken(refreshToken: refresh, clientID: clientID)
-                    KeychainStore.set(renewed, key: tokenKey)
-                    activeToken = renewed
-                    data = try await GoogleDriveService.shared.downloadData(fileID: file.id, accessToken: activeToken)
+
+                    let document = try DocumentImporter.read(data: data, fileExtension: file.name.split(separator: ".").last.map(String.init) ?? "txt", title: file.name)
+                    let sourcePath = file.folderPath.map { "Google Drive/\($0)" } ?? "Google Drive"
+                    _ = library.importDocument(
+                        title: document.title,
+                        text: document.text,
+                        sourcePath: sourcePath,
+                        sourceID: file.id
+                    )
+                    imported += 1
+                } catch {
+                    skipped += 1
                 }
-                let document = try DocumentImporter.read(data: data, fileExtension: file.name.split(separator: ".").last.map(String.init) ?? "txt", title: file.name)
-                let sourcePath = file.folderPath.map { "Google Drive/\($0)" } ?? "Google Drive"
-                _ = library.importDocument(
-                    title: document.title,
-                    text: document.text,
-                    sourcePath: sourcePath,
-                    sourceID: file.id
-                )
             }
             lastSync = .now
-            message = String(localized: "drive.synced")
+            message = skipped == 0
+                ? String(localized: "drive.synced")
+                : String(format: String(localized: "drive.synced_partial_format"), imported, skipped)
         } catch {
             message = error.localizedDescription
         }

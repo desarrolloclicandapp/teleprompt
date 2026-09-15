@@ -18,7 +18,6 @@
 "Desconectar carpeta local" = "Disconnect local folder";
 "Sincronizar carpeta local" = "Sync local folder";
 "Funciones incluidas" = "Included features";
-"Funciones incluidas" = "Included features";
 "TXT, Markdown, PDF y DOCX" = "TXT, Markdown, PDF, and DOCX";
 "Descarga manual desde Drive" = "Manual download from Drive";
 "Lector offline con velocidad manual" = "Offline reader with manual speed control";
@@ -117,6 +116,7 @@
 "Abre una carpeta para entrar en ella. Cuando estés en la carpeta deseada, pulsa Usar esta carpeta." = "Open a folder to browse it. When you reach the desired folder, tap Use this folder.";
 "Cargando carpetas…" = "Loading folders…";
 "drive.synced" = "Google Drive synced.";
+"drive.synced_partial_format" = "Google Drive synced: %d script(s) imported, %d skipped because of errors.";
 "drive.error.not_connected" = "Connect Google Drive to choose a folder.";
 "drive.error.unauthorized" = "Your Google Drive session expired. Connect the account again.";
 "drive.error.forbidden" = "Google Drive denied access (403). Check OAuth consent screen > Test users and connect again.";
@@ -128,6 +128,8 @@
 "import.error.empty_document" = "The document does not contain readable text.";
 "import.error.unreadable_document" = "This document could not be read.";
 "oauth.invalid_client_id" = "The Google Client ID is not configured correctly.";
+"oauth.could_not_start" = "Google Drive connection could not be started. Please try again.";
+"oauth.invalid_state" = "The Google authorization response is not valid. Please try again.";
 "oauth.completion_error_format" = "Google Drive could not be completed: %@";
 "oauth.no_response" = "Google did not return a response.";
 "oauth.access_denied" = "Google blocked access. Add your account under Google Cloud OAuth consent screen > Test users or publish the consent screen.";

@@ -10,6 +10,7 @@ final class GoogleOAuth: NSObject, ObservableObject {
     @Published var errorMessage: String?
     private var session: ASWebAuthenticationSession?
     private var verifier = ""
+    private var authorizationState = ""
 
     override init() {
         super.init()
@@ -31,14 +32,19 @@ final class GoogleOAuth: NSObject, ObservableObject {
     }
 
     func connect() {
+        guard session == nil else { return }
         errorMessage = nil
         guard !clientID.isEmpty, !clientID.contains("REPLACE"), !callbackScheme.isEmpty else {
             errorMessage = String(localized: "oauth.invalid_client_id")
             return
         }
         verifier = Self.randomString(length: 64)
+        authorizationState = Self.randomString(length: 32)
         let challenge = Self.challenge(for: verifier)
-        var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
+        guard var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth") else {
+            errorMessage = String(localized: "oauth.could_not_start")
+            return
+        }
         components.queryItems = [
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "redirect_uri", value: redirectURI),
@@ -47,10 +53,20 @@ final class GoogleOAuth: NSObject, ObservableObject {
             URLQueryItem(name: "access_type", value: "offline"),
             URLQueryItem(name: "prompt", value: "select_account consent"),
             URLQueryItem(name: "code_challenge", value: challenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256")
+            URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "state", value: authorizationState)
         ]
-        session = ASWebAuthenticationSession(url: components.url!, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
+        guard let authorizationURL = components.url else {
+            errorMessage = String(localized: "oauth.could_not_start")
+            return
+        }
+        session = ASWebAuthenticationSession(url: authorizationURL, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
             guard let self else { return }
+            let expectedState = self.authorizationState
+            defer {
+                self.authorizationState = ""
+                self.session = nil
+            }
             guard let callbackURL else {
                 self.errorMessage = error.map {
                     String(format: String(localized: "oauth.completion_error_format"), $0.localizedDescription)
@@ -58,6 +74,10 @@ final class GoogleOAuth: NSObject, ObservableObject {
                 return
             }
             let queryItems = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            guard queryItems.first(where: { $0.name == "state" })?.value == expectedState else {
+                self.errorMessage = String(localized: "oauth.invalid_state")
+                return
+            }
             if let authorizationError = queryItems.first(where: { $0.name == "error" })?.value {
                 let description = queryItems.first(where: { $0.name == "error_description" })?.value
                 if authorizationError == "access_denied" {
@@ -77,7 +97,12 @@ final class GoogleOAuth: NSObject, ObservableObject {
         }
         session?.presentationContextProvider = self
         session?.prefersEphemeralWebBrowserSession = false
-        session?.start()
+        guard session?.start() == true else {
+            session = nil
+            authorizationState = ""
+            errorMessage = String(localized: "oauth.could_not_start")
+            return
+        }
     }
 
     func disconnect() {

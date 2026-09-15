@@ -262,8 +262,10 @@ final class RemoteKeyView: UIView {
             queue: .main
         ) { [weak self] notification in
             guard let keyboard = notification.object as? GCKeyboard else { return }
-            RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "connected")
-            self?.bindKeyboard(keyboard)
+            Task { @MainActor [weak self] in
+                RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "connected")
+                self?.bindKeyboard(keyboard)
+            }
         }
 
         keyboardDisconnectObserver = NotificationCenter.default.addObserver(
@@ -271,9 +273,11 @@ final class RemoteKeyView: UIView {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "disconnected")
-            self?.unbindKeyboard()
-            self?.bindCoalescedKeyboard()
+            Task { @MainActor [weak self] in
+                RemoteInputDiagnostics.shared.log("GC-KEYBOARD", "disconnected")
+                self?.unbindKeyboard()
+                self?.bindCoalescedKeyboard()
+            }
         }
     }
 

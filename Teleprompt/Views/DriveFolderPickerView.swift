@@ -9,6 +9,7 @@ struct DriveFolderPickerView: View {
     @State private var folders: [DriveFolder] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var folderLoadGeneration = 0
 
     private var currentFolder: DriveFolder {
         path.last ?? DriveFolder(id: "root", name: String(localized: "drive.my_drive"))
@@ -100,13 +101,15 @@ struct DriveFolderPickerView: View {
     }
 
     private func loadFolders() async {
+        folderLoadGeneration += 1
+        let generation = folderLoadGeneration
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
 
         do {
             let parentFolder = currentFolder
             let loadedFolders = try await drive.listFolders(in: parentFolder.id)
+            guard generation == folderLoadGeneration else { return }
             folders = loadedFolders.map {
                 DriveFolder(
                     id: $0.id,
@@ -115,9 +118,12 @@ struct DriveFolderPickerView: View {
                     parentName: parentFolder.name
                 )
             }
+            isLoading = false
         } catch {
+            guard generation == folderLoadGeneration else { return }
             folders = []
             errorMessage = error.localizedDescription
+            isLoading = false
         }
     }
 
