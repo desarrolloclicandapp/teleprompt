@@ -11,7 +11,8 @@ final class StoreKitConfigurationTests: XCTestCase {
         let configurationURL = try XCTUnwrap(
             bundle.url(forResource: "Teleprompt", withExtension: "storekit")
         )
-        _ = try SKTestSession(contentsOf: configurationURL)
+        let session = try SKTestSession(contentsOf: configurationURL)
+        defer { withExtendedLifetime(session) {} }
 
         let products = try await Product.products(for: StoreKitConfiguration.productIDs)
         let trial = try XCTUnwrap(
