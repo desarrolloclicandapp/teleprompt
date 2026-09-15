@@ -131,7 +131,7 @@ final class ScriptLibrary: ObservableObject {
             let data = try JSONEncoder().encode(scripts)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            assertionFailure("No se pudo guardar la biblioteca: \(error)")
+            storageMessage = String(localized: "library.save_failed")
         }
     }
 }

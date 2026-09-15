@@ -136,6 +136,7 @@
 "oauth.no_code" = "Google no devolvió un código de autorización.";
 "library.recovered_corrupt" = "No se pudo leer la biblioteca anterior. Se guardó una copia de recuperación y se creó una biblioteca nueva.";
 "library.recovery_failed" = "No se pudo leer la biblioteca de guiones. No se sobrescribió el archivo original.";
+"library.save_failed" = "No se pudieron guardar los cambios en la biblioteca de guiones.";
 "camera.permissions_required" = "Activa la cámara y el micrófono en Ajustes para grabar.";
 "camera.unavailable" = "No se pudo abrir la cámara.";
 "camera.output_unavailable" = "No se pudo preparar la salida de vídeo.";

@@ -35,7 +35,18 @@ enum StoreKitConfiguration {
     }
 
     private static func versionParts(_ value: String) -> [Int] {
-        value.split(separator: ".").compactMap { Int($0) }
+        let components = value.split(separator: ".", omittingEmptySubsequences: false)
+        guard !components.isEmpty else { return [] }
+
+        let parts = components.map { Int($0) }
+        guard parts.allSatisfy({ part in
+            guard let part else { return false }
+            return part >= 0
+        }) else {
+            return []
+        }
+
+        return parts.compactMap { $0 }
     }
 }
 

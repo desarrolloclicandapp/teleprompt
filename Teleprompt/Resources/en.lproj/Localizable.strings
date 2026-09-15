@@ -136,6 +136,7 @@
 "oauth.no_code" = "Google did not return an authorization code.";
 "library.recovered_corrupt" = "The previous library could not be read. A recovery copy was saved and a new library was created.";
 "library.recovery_failed" = "The script library could not be read. The original file was not overwritten.";
+"library.save_failed" = "The changes to the script library could not be saved.";
 "camera.permissions_required" = "Enable camera and microphone access in Settings to record.";
 "camera.unavailable" = "The camera could not be opened.";
 "camera.output_unavailable" = "The video output could not be prepared.";

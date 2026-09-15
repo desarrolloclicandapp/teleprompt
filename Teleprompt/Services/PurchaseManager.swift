@@ -172,7 +172,7 @@ final class PurchaseManager: ObservableObject {
     }
 
     private func refreshState() async {
-        var lifetimeTransaction: Transaction?
+        var hasLifetimeEntitlement = false
         var trialTransaction: Transaction?
 
         for await result in Transaction.currentEntitlements {
@@ -182,7 +182,7 @@ final class PurchaseManager: ObservableObject {
 
             switch transaction.productID {
             case StoreKitConfiguration.lifetimeProductID:
-                lifetimeTransaction = transaction
+                hasLifetimeEntitlement = true
             case StoreKitConfiguration.trialProductID:
                 trialTransaction = transaction
             default:
@@ -190,7 +190,7 @@ final class PurchaseManager: ObservableObject {
             }
         }
 
-        if let lifetimeTransaction {
+        if hasLifetimeEntitlement {
             cacheLifetimeUnlock()
             state = .lifetimeUnlocked
             return

@@ -44,5 +44,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: TelepromptTests
+    resources:
+      - path: Teleprompt.storekit
     dependencies:
       - target: Teleprompt

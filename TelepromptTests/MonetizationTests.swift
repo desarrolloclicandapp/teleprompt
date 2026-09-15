@@ -18,6 +18,12 @@ final class MonetizationTests: XCTestCase {
             TrialClock.state(startDate: start, now: end),
             .trialExpired
         )
+        XCTAssertEqual(TrialClock.remainingDays(startDate: start, now: start), 7)
+        XCTAssertEqual(
+            TrialClock.remainingDays(startDate: start, now: end.addingTimeInterval(-1)),
+            1
+        )
+        XCTAssertEqual(TrialClock.remainingDays(startDate: start, now: end), 0)
     }
 
     func testNoTrialHasNotStarted() {
@@ -29,6 +35,29 @@ final class MonetizationTests: XCTestCase {
         XCTAssertTrue(StoreKitConfiguration.isVersion("1.0.0", atMost: "1.0.1"))
         XCTAssertFalse(StoreKitConfiguration.isVersion("1.1.0", atMost: "1.0.1"))
         XCTAssertFalse(StoreKitConfiguration.isVersion("1785247605", atMost: "1.0.1"))
+        XCTAssertFalse(StoreKitConfiguration.isVersion("1.beta", atMost: "1.0.1"))
+        XCTAssertFalse(StoreKitConfiguration.isVersion("1.0.", atMost: "1.0.1"))
+        XCTAssertFalse(StoreKitConfiguration.isVersion("-1.0", atMost: "1.0.1"))
+    }
+
+    func testPurchaseFlowBlocksOnlyWhenAppropriate() {
+        XCTAssertFalse(PurchaseFlowState.idle.isBusy)
+        XCTAssertFalse(PurchaseFlowState.idle.blocksPurchase)
+        XCTAssertTrue(PurchaseFlowState.purchasing.isBusy)
+        XCTAssertTrue(PurchaseFlowState.purchasing.blocksPurchase)
+        XCTAssertTrue(PurchaseFlowState.restoring.isBusy)
+        XCTAssertTrue(PurchaseFlowState.pending.blocksPurchase)
+        XCTAssertFalse(PurchaseFlowState.cancelled.blocksPurchase)
+        XCTAssertFalse(PurchaseFlowState.failed("Error").blocksPurchase)
+    }
+
+    func testProductIdentifiersAreUniqueAndStable() {
+        XCTAssertEqual(
+            Set(StoreKitConfiguration.productIDs),
+            Set([StoreKitConfiguration.trialProductID, StoreKitConfiguration.lifetimeProductID])
+        )
+        XCTAssertFalse(StoreKitConfiguration.trialProductID.isEmpty)
+        XCTAssertFalse(StoreKitConfiguration.lifetimeProductID.isEmpty)
     }
 }
 

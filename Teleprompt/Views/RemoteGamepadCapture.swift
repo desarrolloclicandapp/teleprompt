@@ -188,14 +188,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
                 }
             }
 
-            // Older and generic controllers may expose a Menu/Pause button only
-            // through this compatibility callback. Treat it as physical B.
-            controller.controllerPausedHandler = { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.onAction(.toggleControls)
-                }
-            }
-
 #if DEBUG
             print("[RemotePAD/Game] connected:", controller.vendorName ?? "unknown")
             print("[RemotePAD/Game] all buttons:")
@@ -220,7 +212,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
         }
 
         private func clearHandlers(from controller: GCController) {
-            controller.controllerPausedHandler = nil
             controller.physicalInputProfile.valueDidChangeHandler = nil
         }
 
@@ -257,14 +248,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
                 register(extended.dpad, asDirectionalPadIn: binding)
                 register(extended.leftThumbstick, asDirectionalPadIn: binding)
                 register(extended.rightThumbstick, asDirectionalPadIn: binding)
-            }
-
-            if let legacy = controller.gamepad {
-                assign(legacy.buttonA, action: .playPause, to: binding)
-                assign(legacy.buttonB, action: .toggleControls, to: binding)
-                assign(legacy.buttonX, action: .toggleRecordingPause, to: binding)
-                assign(legacy.buttonY, action: .toggleRecording, to: binding)
-                register(legacy.dpad, asDirectionalPadIn: binding)
             }
 
             if let micro = controller.microGamepad {
@@ -530,8 +513,6 @@ struct RemoteGamepadCapture: UIViewRepresentable {
 }
 
 final class RemoteGamepadHostView: UIView {
-    private var eventInteraction: (any UIInteraction)?
-
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else { return }
@@ -539,14 +520,9 @@ final class RemoteGamepadHostView: UIView {
     }
 
     func activateCapture() {
-        // Keyboard-style events must remain owned by RemoteKeyView. This host
-        // only requests GameController delivery and never becomes first responder.
-        if #available(iOS 26.0, *), eventInteraction == nil {
-            let interaction = GCEventInteraction()
-            interaction.handledEventTypes = .gamepad
-            interaction.receivesEventsInView = false
-            addInteraction(interaction)
-            eventInteraction = interaction
-        }
+        // GameController delivery is configured by the coordinator through
+        // GCPhysicalInputProfile. Keep this host passive so the project also
+        // builds with its supported Xcode 15.4 toolchain; GCEventInteraction
+        // is not present in that SDK.
     }
 }

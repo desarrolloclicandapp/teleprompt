@@ -213,14 +213,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
             return
         }
 
-        if let legacy = controller.physicalInputProfile as? GCGamepad {
-            setupLegacyGamepad(legacy)
-            gameControllerConnected = true
-            activeSource = .gameController
-            bluetoothFallback.stop()
-            return
-        }
-
         updateActiveSource()
     }
 
@@ -241,14 +233,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
             micro.buttonX.pressedChangedHandler = nil
         }
 
-        if let legacy = controller.physicalInputProfile as? GCGamepad {
-            legacy.dpad.valueChangedHandler = nil
-            legacy.buttonA.pressedChangedHandler = nil
-            legacy.buttonB.pressedChangedHandler = nil
-            legacy.buttonX.pressedChangedHandler = nil
-            legacy.buttonY.pressedChangedHandler = nil
-        }
-
         emit(.joystick(x: 0, y: 0))
         updateActiveSource()
     }
@@ -265,17 +249,6 @@ final class MediaRemoteController: NSObject, ObservableObject {
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
-        gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.emitJoystick(x: Double(xValue), y: Double(yValue))
-        }
-    }
-
-    private func setupLegacyGamepad(_ gamepad: GCGamepad) {
-        bindButton(gamepad.buttonA, action: .playPause)
-        bindButton(gamepad.buttonB, action: .toggleControls)
-        bindButton(gamepad.buttonX, action: .toggleRecordingPause)
-        bindButton(gamepad.buttonY, action: .toggleRecording)
-
         gamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.emitJoystick(x: Double(xValue), y: Double(yValue))
         }
