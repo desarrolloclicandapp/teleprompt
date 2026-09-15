@@ -9,6 +9,7 @@ final class PurchaseManager: ObservableObject {
     @Published private(set) var lifetimeProduct: Product?
     @Published private(set) var trialProduct: Product?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var isPresentingTrialIntroductionPreview = false
 
     private var transactionUpdatesTask: Task<Void, Never>?
     private var didBootstrap = false
@@ -36,6 +37,19 @@ final class PurchaseManager: ObservableObject {
         return false
     }
 
+    var displayedState: MonetizationState {
+        isPresentingTrialIntroductionPreview ? .trialNotStarted : state
+    }
+
+    var canPreviewTrialIntroduction: Bool {
+        Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    }
+
+    func showTrialIntroductionPreview() {
+        guard canPreviewTrialIntroduction else { return }
+        isPresentingTrialIntroductionPreview = true
+    }
+
     func bootstrapIfNeeded() async {
         guard !didBootstrap else { return }
         didBootstrap = true
@@ -59,6 +73,10 @@ final class PurchaseManager: ObservableObject {
     }
 
     func startTrial() async {
+        guard !isPresentingTrialIntroductionPreview else {
+            isPresentingTrialIntroductionPreview = false
+            return
+        }
         guard !purchaseFlowState.isBusy else { return }
         guard let product = trialProduct else {
             purchaseFlowState = .failed(String(localized: "purchase.trial_unavailable"))
