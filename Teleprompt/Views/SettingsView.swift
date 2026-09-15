@@ -112,10 +112,12 @@ struct SettingsView: View {
                 Label("Cámara y grabación: opcionales", systemImage: "video")
             }
 
-            Section("Datos de este dispositivo") {
+            Section {
                 Button("Eliminar datos locales", role: .destructive) {
                     showLocalDataResetConfirmation = true
                 }
+            } header: {
+                Text("Datos de este dispositivo")
             } footer: {
                 Text("Elimina los guiones guardados en este iPhone y desconecta Google Drive y las carpetas vinculadas. No elimina compras de Apple, archivos de Google Drive ni vídeos de Fotos.")
             }
