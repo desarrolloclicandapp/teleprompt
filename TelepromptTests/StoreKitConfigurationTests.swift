@@ -54,7 +54,7 @@ final class StoreKitConfigurationTests: XCTestCase {
         try await session.buyProduct(identifier: StoreKitConfiguration.lifetimeProductID)
         let transaction = try XCTUnwrap(session.allTransactions().first)
 
-        try await session.refundTransaction(identifier: transaction.identifier)
+        try session.refundTransaction(identifier: transaction.identifier)
 
         let entitlementIDs = await currentEntitlementIDs()
         XCTAssertFalse(entitlementIDs.contains(StoreKitConfiguration.lifetimeProductID))
