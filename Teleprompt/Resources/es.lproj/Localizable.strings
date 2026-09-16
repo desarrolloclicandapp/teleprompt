@@ -93,6 +93,14 @@
 "Contacto" = "Contacto";
 "Folder selected" = "Carpeta seleccionada";
 "trial.price_format" = "Al terminar, el desbloqueo de por vida cuesta %@.";
+"trial.access_title" = "Acceso completo durante 7 días";
+"trial.access_description" = "Empieza a usar Teleprompt sin coste. Al terminar el acceso gratuito, puedes elegir desbloquear la aplicación para siempre.";
+"trial.lifetime_unlock" = "Desbloqueo de por vida";
+"trial.one_time_purchase_terms" = "Pago único · Sin suscripción · Sin renovación automática";
+"trial.bullet.one_time_purchase" = "Un único pago para desbloquearla para siempre";
+"trial.bullet.no_automatic_renewal" = "No hay renovación automática";
+"trial.bullet.no_charge_after_access" = "No se cobra nada al terminar el acceso gratuito";
+"trial.start_access" = "Empezar acceso gratuito de 7 días";
 "trial.days_remaining_format" = "Prueba gratuita · quedan %d días";
 "drive.folder_label_format" = "Carpeta de Drive: %@";
 "drive.choose_folder" = "Elegir carpeta de Google Drive";

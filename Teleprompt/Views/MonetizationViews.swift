@@ -53,27 +53,34 @@ struct TrialIntroductionView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.mint)
 
-            Text("Prueba gratuita de 7 días")
-                .font(.largeTitle.bold())
+            Text(String(localized: "trial.access_title"))
+                .font(.title.bold())
                 .multilineTextAlignment(.center)
 
-            Text("Usa Teleprompt con acceso completo durante 7 días. Después podrás desbloquearlo para siempre con un único pago.")
+            Text(String(localized: "trial.access_description"))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             if let product = purchaseManager.lifetimeProduct {
-                Text(String(format: String(localized: "trial.price_format"), product.displayPrice))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 4) {
+                    Text(String(localized: "trial.lifetime_unlock"))
+                        .font(.headline)
+                    Text(product.displayPrice)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                    Text(String(localized: "trial.one_time_purchase_terms"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.mint)
+                .multilineTextAlignment(.center)
             }
 
-            MonetizationBullet(text: "No es una suscripción")
-            MonetizationBullet(text: "No hay renovación automática")
-            MonetizationBullet(text: "No se cobra nada al terminar el trial")
+            MonetizationBullet(text: "trial.bullet.one_time_purchase")
+            MonetizationBullet(text: "trial.bullet.no_automatic_renewal")
+            MonetizationBullet(text: "trial.bullet.no_charge_after_access")
 
-            Button("Empezar prueba gratuita") {
+            Button(String(localized: "trial.start_access")) {
                 Task { await purchaseManager.startTrial() }
             }
             .buttonStyle(.borderedProminent)

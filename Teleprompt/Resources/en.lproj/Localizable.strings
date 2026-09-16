@@ -93,6 +93,14 @@
 "Contacto" = "Contact";
 "Folder selected" = "Folder selected";
 "trial.price_format" = "Afterwards, lifetime access costs %@.";
+"trial.access_title" = "Full access for 7 days";
+"trial.access_description" = "Start using Teleprompt at no cost. After the free access ends, you can choose to unlock the app forever.";
+"trial.lifetime_unlock" = "Lifetime unlock";
+"trial.one_time_purchase_terms" = "One-time payment · No subscription · No automatic renewal";
+"trial.bullet.one_time_purchase" = "One payment unlocks the app forever";
+"trial.bullet.no_automatic_renewal" = "No automatic renewal";
+"trial.bullet.no_charge_after_access" = "You are not charged when free access ends";
+"trial.start_access" = "Start 7-day free access";
 "trial.days_remaining_format" = "Free trial · %d days left";
 "drive.folder_label_format" = "Drive folder: %@";
 "drive.choose_folder" = "Choose a Google Drive folder";
