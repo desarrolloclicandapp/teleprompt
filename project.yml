@@ -39,6 +39,7 @@ targets:
       storeKitConfiguration: Teleprompt.storekit
       testTargets:
         - TelepromptTests
+        - TelepromptUITests
   TelepromptTests:
     type: bundle.unit-test
     platform: iOS
@@ -47,5 +48,13 @@ targets:
       - path: TelepromptTests
       - path: Teleprompt.storekit
         buildPhase: resources
+    dependencies:
+      - target: Teleprompt
+  TelepromptUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: TelepromptUITests
     dependencies:
       - target: Teleprompt

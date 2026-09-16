@@ -68,6 +68,7 @@ struct TrialIntroductionView: View {
                         .font(.headline)
                     Text(product.displayPrice)
                         .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .accessibilityIdentifier("trial.lifetime_price")
                     Text(String(localized: "trial.one_time_purchase_terms"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -96,6 +97,7 @@ struct TrialIntroductionView: View {
             }
             PurchaseFlowFeedback(manager: purchaseManager)
         }
+        .accessibilityIdentifier("trial.introduction")
     }
 }
 

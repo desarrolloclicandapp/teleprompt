@@ -25,7 +25,7 @@ workflows:
         script: xcodegen generate
       - name: Resolve Swift packages
         script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
-      - name: Run unit tests on an available iPhone simulator
+      - name: Run tests and capture initial purchase screen
         script: |
           UDID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
@@ -40,12 +40,19 @@ workflows:
           raise SystemExit("No available iPhone simulator found")
           ')
           xcrun simctl boot "$UDID" || true
+          RESULT_BUNDLE="$CM_BUILD_DIR/build/teleprompt-tests.xcresult"
+          ATTACHMENTS_DIRECTORY="$CM_BUILD_DIR/build/test-attachments"
           xcodebuild test \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -destination "id=$UDID" \
+            -resultBundlePath "$RESULT_BUNDLE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
+          mkdir -p "$ATTACHMENTS_DIRECTORY"
+          xcrun xcresulttool export attachments \
+            --path "$RESULT_BUNDLE" \
+            --output-path "$ATTACHMENTS_DIRECTORY"
       - name: Set ordered App Store build number and encryption declaration
         script: |
           BUILD_COUNTER="${BUILD_NUMBER:-1}"
@@ -63,6 +70,8 @@ workflows:
         script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/test-attachments/**/*.png
+      - build/teleprompt-tests.xcresult
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
