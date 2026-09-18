@@ -53,6 +53,12 @@
 "Pausar lectura" = "Pausar lectura";
 "Iniciar lectura" = "Iniciar lectura";
 "Velocidad de lectura" = "Velocidad de lectura";
+"review_demo.section_title" = "Demostración de revisión";
+"review_demo.reset_access" = "Reiniciar acceso para la grabación";
+"review_demo.footer" = "Solo está disponible en el build temporal de TestFlight para revisión. No cancela ni elimina tu compra de Apple.";
+"review_demo.confirm_title" = "¿Reiniciar el acceso de demostración?";
+"review_demo.confirm_message" = "Mostrará temporalmente el flujo de acceso gratuito para grabarlo. Tu compra de Apple se conserva.";
+"review_demo.confirm_action" = "Reiniciar acceso";
 "Video guardado en Fotos" = "Video guardado en Fotos";
 "RemotePAD RAW" = "RemotePAD RAW";
 "Limpiar" = "Limpiar";

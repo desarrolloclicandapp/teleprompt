@@ -52,6 +52,30 @@ enum StoreKitConfiguration {
     }
 }
 
+/// Available only in the dedicated TestFlight review-demo build. The regular
+/// App Store workflow never writes this flag into the signed app bundle.
+enum AppReviewDemoMode {
+    private static let infoPlistKey = "TelepromptReviewDemoMode"
+    private static let activeKey = "teleprompt.review-demo.active"
+
+    static var isEnabled: Bool {
+        Bundle.main.object(forInfoDictionaryKey: infoPlistKey) as? Bool ?? false
+    }
+
+    static var isActive: Bool {
+        isEnabled && UserDefaults.standard.bool(forKey: activeKey)
+    }
+
+    static func activate() {
+        guard isEnabled else { return }
+        UserDefaults.standard.set(true, forKey: activeKey)
+    }
+
+    static func deactivate() {
+        UserDefaults.standard.removeObject(forKey: activeKey)
+    }
+}
+
 enum MonetizationState: Equatable {
     case loading
     case trialNotStarted

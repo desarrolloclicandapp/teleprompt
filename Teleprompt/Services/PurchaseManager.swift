@@ -93,6 +93,7 @@ final class PurchaseManager: ObservableObject {
                     purchaseFlowState = .failed(String(localized: "purchase.wrong_product"))
                     return
                 }
+                AppReviewDemoMode.deactivate()
                 cacheLifetimeUnlock()
                 await transaction.finish()
                 await refreshState()
@@ -115,6 +116,7 @@ final class PurchaseManager: ObservableObject {
         purchaseFlowState = .restoring
         do {
             try await AppStore.sync()
+            AppReviewDemoMode.deactivate()
             await refreshState()
             purchaseFlowState = isLifetimeUnlocked ? .restoreSuccess : .restoreNotFound
         } catch {
@@ -128,6 +130,18 @@ final class PurchaseManager: ObservableObject {
         } else if purchaseFlowState == .restoreNotFound || purchaseFlowState == .restoreSuccess || purchaseFlowState == .pending {
             purchaseFlowState = .idle
         }
+    }
+
+    func resetForReviewDemo() {
+        guard AppReviewDemoMode.isEnabled else { return }
+
+        AppReviewDemoMode.activate()
+        KeychainStore.remove(StoreKitConfiguration.localFreeAccessStartKey)
+        KeychainStore.remove(StoreKitConfiguration.lastObservedDateKey)
+        trialStartDate = nil
+        errorMessage = nil
+        purchaseFlowState = .idle
+        state = .trialNotStarted
     }
 
     private func loadProducts() async {
@@ -144,6 +158,12 @@ final class PurchaseManager: ObservableObject {
     }
 
     private func refreshState() async {
+        if AppReviewDemoMode.isActive {
+            trialStartDate = cachedTrialStartDate
+            state = TrialClock.state(startDate: trialStartDate, now: trustedNow())
+            return
+        }
+
         var hasLifetimeEntitlement = false
 
         for await result in Transaction.currentEntitlements {

@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showDriveFolderPicker = false
     @State private var openPickerAfterConnection = false
     @State private var showLocalDataResetConfirmation = false
+    @State private var showReviewDemoResetConfirmation = false
 
     var body: some View {
         Form {
@@ -112,6 +113,18 @@ struct SettingsView: View {
                 Label("Cámara y grabación: opcionales", systemImage: "video")
             }
 
+            if AppReviewDemoMode.isEnabled {
+                Section {
+                    Button(String(localized: "review_demo.reset_access"), role: .destructive) {
+                        showReviewDemoResetConfirmation = true
+                    }
+                } header: {
+                    Text(String(localized: "review_demo.section_title"))
+                } footer: {
+                    Text(String(localized: "review_demo.footer"))
+                }
+            }
+
             Section {
                 Button("Eliminar datos locales", role: .destructive) {
                     showLocalDataResetConfirmation = true
@@ -159,6 +172,14 @@ struct SettingsView: View {
             }
         } message: {
             Text("Esta acción elimina los guiones guardados en este iPhone y desconecta las fuentes vinculadas. No se puede deshacer.")
+        }
+        .alert(String(localized: "review_demo.confirm_title"), isPresented: $showReviewDemoResetConfirmation) {
+            Button("Cancelar", role: .cancel) {}
+            Button(String(localized: "review_demo.confirm_action"), role: .destructive) {
+                purchaseManager.resetForReviewDemo()
+            }
+        } message: {
+            Text(String(localized: "review_demo.confirm_message"))
         }
     }
 

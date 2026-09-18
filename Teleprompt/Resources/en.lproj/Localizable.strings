@@ -53,6 +53,12 @@
 "Pausar lectura" = "Pause reading";
 "Iniciar lectura" = "Start reading";
 "Velocidad de lectura" = "Reading speed";
+"review_demo.section_title" = "Review demo";
+"review_demo.reset_access" = "Reset access for review recording";
+"review_demo.footer" = "Only available in the temporary TestFlight review build. It does not cancel or delete your Apple purchase.";
+"review_demo.confirm_title" = "Reset review access?";
+"review_demo.confirm_message" = "This temporarily shows the free-access flow for recording. Your Apple purchase remains intact.";
+"review_demo.confirm_action" = "Reset access";
 "Video guardado en Fotos" = "Video saved to Photos";
 "RemotePAD RAW" = "RemotePAD RAW";
 "Limpiar" = "Clear";
