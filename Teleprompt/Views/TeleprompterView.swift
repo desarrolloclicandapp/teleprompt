@@ -36,8 +36,8 @@ struct TeleprompterView: View {
     @State var cameraSideIsTrailing = true
 
     let minimumSpeed = 200.0
-    let maximumSpeed = 1500.0
-    let speedLevelCount = 50
+    let maximumSpeed = 3000.0
+    let speedLevelCount = 30
     let referenceFontSize: CGFloat = 42
     let portraitControlHeight: CGFloat = 228
 
