@@ -13,7 +13,9 @@ enum StoreKitConfiguration {
     // free in App Store Connect before monetization was introduced.
     static let lastFreeAppVersion = "1.0.1"
 
-    static let cachedTrialStartKey = "teleprompt.monetization.trial-start"
+    // This intentionally differs from the key used by the former trial IAP.
+    // Existing testers receive the new local access flow once after upgrading.
+    static let localFreeAccessStartKey = "teleprompt.monetization.free-access-start"
     static let cachedLifetimeKey = "teleprompt.monetization.lifetime-unlocked"
     static let cachedLegacyAccessKey = "teleprompt.monetization.legacy-access"
     static let lastObservedDateKey = "teleprompt.monetization.last-observed-date"

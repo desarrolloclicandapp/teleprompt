@@ -40,7 +40,7 @@ final class PurchaseManager: ObservableObject {
         didBootstrap = true
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-teleprompt.resetLocalMonetization") {
-            KeychainStore.remove(StoreKitConfiguration.cachedTrialStartKey)
+            KeychainStore.remove(StoreKitConfiguration.localFreeAccessStartKey)
             KeychainStore.remove(StoreKitConfiguration.cachedLifetimeKey)
             KeychainStore.remove(StoreKitConfiguration.cachedLegacyAccessKey)
             KeychainStore.remove(StoreKitConfiguration.lastObservedDateKey)
@@ -224,14 +224,14 @@ final class PurchaseManager: ObservableObject {
     }
 
     private var cachedTrialStartDate: Date? {
-        guard let value = KeychainStore.get(StoreKitConfiguration.cachedTrialStartKey),
+        guard let value = KeychainStore.get(StoreKitConfiguration.localFreeAccessStartKey),
               let timestamp = TimeInterval(value) else { return nil }
         return Date(timeIntervalSince1970: timestamp)
     }
 
     private func cacheTrialStart(_ date: Date) {
         trialStartDate = date
-        KeychainStore.set(String(date.timeIntervalSince1970), key: StoreKitConfiguration.cachedTrialStartKey)
+        KeychainStore.set(String(date.timeIntervalSince1970), key: StoreKitConfiguration.localFreeAccessStartKey)
     }
 
     private func cacheLifetimeUnlock() {
