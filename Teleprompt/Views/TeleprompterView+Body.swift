@@ -80,6 +80,10 @@ extension TeleprompterView {
                 }
             }
             .onAppear {
+                // A teleprompter needs to remain readable while it is open.
+                // This does not change the user's brightness setting and iOS
+                // can still be locked manually.
+                UIApplication.shared.isIdleTimerDisabled = true
                 updatePanelLayout(
                     for: canvas.size,
                     safeAreaInsets: canvas.safeAreaInsets,
@@ -116,6 +120,7 @@ extension TeleprompterView {
         }
         .onDisappear {
             cancelCountdown()
+            UIApplication.shared.isIdleTimerDisabled = false
             joystickInput = .zero
 
             Task {

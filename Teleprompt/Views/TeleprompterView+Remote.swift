@@ -160,6 +160,7 @@ extension TeleprompterView {
     func resetReader() {
         cancelCountdown()
         isPlaying = false
+        hasStartedReading = false
         scrollOffset = 0
     }
 
@@ -191,9 +192,11 @@ extension TeleprompterView {
             return
         }
 
-        if scrollOffset >= maxScrollOffset - 0.5 {
+        if maxScrollOffset > 0, scrollOffset >= maxScrollOffset - 0.5 {
             scrollOffset = 0
+            hasStartedReading = false
         }
+        hasStartedReading = true
         isPlaying = true
     }
 
@@ -209,8 +212,16 @@ extension TeleprompterView {
             return
         }
 
-        if scrollOffset >= maxScrollOffset - 0.5 {
+        if maxScrollOffset > 0, scrollOffset >= maxScrollOffset - 0.5 {
             scrollOffset = 0
+            hasStartedReading = false
+        }
+
+        // The three-second count-in is only for a new read. Resuming after a
+        // pause continues immediately from the same line.
+        if hasStartedReading {
+            isPlaying = true
+            return
         }
         beginCountdown()
     }
@@ -237,6 +248,7 @@ extension TeleprompterView {
                 return
             }
             countdownValue = 0
+            hasStartedReading = true
             isPlaying = true
             countdownTask = nil
         }

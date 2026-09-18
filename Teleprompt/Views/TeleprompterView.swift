@@ -12,6 +12,7 @@ struct TeleprompterView: View {
     @State var lastRemoteActionAt = Date.distantPast
     @State var lastJoystickSpeedChangeAt = Date.distantPast
     @State var isPlaying = false
+    @State var hasStartedReading = false
     @State var speed: Double = 200
     @State var fontSize: Double = 26
     @State var mirrorHorizontal = false
