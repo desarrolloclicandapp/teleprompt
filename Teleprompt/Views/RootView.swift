@@ -7,10 +7,11 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var query = ""
     @State private var sortNewest = true
-    @State private var showingNew = false
     @State private var showingImporter = false
     @State private var selectedScript: Script?
     @State private var importError: String?
+
+    private let storedMyScriptsName = "Mis guiones"
 
     private var visibleScripts: [Script] {
         let filtered = library.scripts.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) || $0.text.localizedCaseInsensitiveContains(query) }
@@ -21,8 +22,8 @@ struct RootView: View {
         Dictionary(grouping: visibleScripts, by: { $0.sourcePath ?? "Mis guiones" })
             .map { ScriptGroup(name: $0.key, scripts: $0.value) }
             .sorted { lhs, rhs in
-                if lhs.name == "Mis guiones" { return true }
-                if rhs.name == "Mis guiones" { return false }
+                if lhs.name == storedMyScriptsName { return true }
+                if rhs.name == storedMyScriptsName { return false }
                 return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
     }
@@ -42,7 +43,7 @@ struct RootView: View {
                                     scriptRow(script)
                                 }
                             } header: {
-                                Label("\(group.name) · \(group.scripts.count)", systemImage: "folder.fill")
+                                Label("\(displayGroupName(group.name)) · \(group.scripts.count)", systemImage: "folder.fill")
                             }
                         }
                     }
@@ -53,10 +54,10 @@ struct RootView: View {
             .searchable(text: $query, prompt: "Buscar guiones")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button { showingImporter = true } label: { Label("Importar archivos", systemImage: "doc.badge.plus") }
-                        Button { showingNew = true } label: { Label("Crear guion", systemImage: "square.and.pencil") }
-                    } label: { Image(systemName: "plus") }
+                    Button { showingImporter = true } label: {
+                        Image(systemName: "doc.badge.plus")
+                    }
+                    .accessibilityLabel("Importar archivos")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -66,7 +67,6 @@ struct RootView: View {
                 }
             }
             .sheet(item: $selectedScript) { script in ScriptEditorView(script: script) }
-            .sheet(isPresented: $showingNew) { ScriptEditorView(script: library.add()) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: DocumentImporter.supportedTypes, allowsMultipleSelection: true) { result in
                 switch result {
                 case .success(let urls):
@@ -82,6 +82,17 @@ struct RootView: View {
             .alert("No se pudo importar", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("Aceptar", role: .cancel) { importError = nil }
             } message: { Text(importError ?? "") }
+            .alert(
+                "Problema con la biblioteca",
+                isPresented: Binding(
+                    get: { library.storageMessage != nil },
+                    set: { if !$0 { library.clearStorageMessage() } }
+                )
+            ) {
+                Button("Aceptar", role: .cancel) { library.clearStorageMessage() }
+            } message: {
+                Text(library.storageMessage ?? "")
+            }
             .task {
                 syncDriveIfNeeded()
             }
@@ -96,6 +107,19 @@ struct RootView: View {
     private func syncDriveIfNeeded() {
         guard drive.folderID != nil else { return }
         Task { await drive.sync(library: library) }
+    }
+
+    private func displayGroupName(_ name: String) -> String {
+        if name == storedMyScriptsName {
+            return String(localized: "root.my_scripts")
+        }
+        if name == "Carpeta local" {
+            return String(localized: "root.local_folder")
+        }
+        if name.hasPrefix("Carpeta local/") {
+            return String(localized: "root.local_folder") + String(name.dropFirst("Carpeta local".count))
+        }
+        return name
     }
 
     private func scriptRow(_ script: Script) -> some View {

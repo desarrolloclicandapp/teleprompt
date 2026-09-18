@@ -9,9 +9,10 @@ struct DriveFolderPickerView: View {
     @State private var folders: [DriveFolder] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var folderLoadGeneration = 0
 
     private var currentFolder: DriveFolder {
-        path.last ?? DriveFolder(id: "root", name: "Mi unidad")
+        path.last ?? DriveFolder(id: "root", name: String(localized: "drive.my_drive"))
     }
 
     var body: some View {
@@ -21,7 +22,10 @@ struct DriveFolderPickerView: View {
                     Button {
                         select(currentFolder)
                     } label: {
-                        Label("Usar \(currentFolder.name)", systemImage: "checkmark.circle.fill")
+                        Label(
+                            String(format: String(localized: "drive.use_folder_format"), currentFolder.name),
+                            systemImage: "checkmark.circle.fill"
+                        )
                     }
                     .foregroundStyle(.mint)
                 } footer: {
@@ -87,7 +91,7 @@ struct DriveFolderPickerView: View {
             path = [
                 DriveFolder(
                     id: parentID,
-                    name: drive.folderParentName ?? "Carpeta actual",
+                    name: drive.folderParentName ?? String(localized: "drive.current_folder"),
                     parentID: nil,
                     parentName: nil
                 )
@@ -97,13 +101,15 @@ struct DriveFolderPickerView: View {
     }
 
     private func loadFolders() async {
+        folderLoadGeneration += 1
+        let generation = folderLoadGeneration
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
 
         do {
             let parentFolder = currentFolder
             let loadedFolders = try await drive.listFolders(in: parentFolder.id)
+            guard generation == folderLoadGeneration else { return }
             folders = loadedFolders.map {
                 DriveFolder(
                     id: $0.id,
@@ -112,9 +118,12 @@ struct DriveFolderPickerView: View {
                     parentName: parentFolder.name
                 )
             }
+            isLoading = false
         } catch {
+            guard generation == folderLoadGeneration else { return }
             folders = []
             errorMessage = error.localizedDescription
+            isLoading = false
         }
     }
 

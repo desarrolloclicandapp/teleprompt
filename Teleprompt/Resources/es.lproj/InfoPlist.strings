@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Teleprompt necesita la cámara frontal para grabarte mientras lees.";
+"NSMicrophoneUsageDescription" = "Teleprompt necesita el micrófono para grabar tus videos.";
+"NSPhotoLibraryAddUsageDescription" = "Teleprompt guarda tus grabaciones en la app Fotos.";
+"NSBluetoothAlwaysUsageDescription" = "Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.";
+"NSBluetoothPeripheralUsageDescription" = "Teleprompt necesita Bluetooth para detectar y usar pads de control conectados.";
