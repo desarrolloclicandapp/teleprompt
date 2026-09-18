@@ -1,15 +1,6 @@
 {
   "products" : [
     {
-      "displayPrice" : "0",
-      "familyShareable" : false,
-      "internalID" : "trial7days",
-      "locale" : "en_US",
-      "productID" : "com.APP.trial7days",
-      "referenceName" : "7 Day Trial",
-      "type" : "NonConsumable"
-    },
-    {
       "displayPrice" : "19.99",
       "familyShareable" : false,
       "internalID" : "lifetime",

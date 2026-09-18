@@ -86,7 +86,7 @@ struct TrialIntroductionView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(purchaseManager.trialProduct == nil || purchaseManager.purchaseFlowState.blocksPurchase)
+            .disabled(purchaseManager.purchaseFlowState.blocksPurchase)
 
             RestorePurchaseButton()
             if let errorMessage = purchaseManager.errorMessage {

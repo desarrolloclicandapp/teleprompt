@@ -51,12 +51,11 @@ final class MonetizationTests: XCTestCase {
         XCTAssertFalse(PurchaseFlowState.failed("Error").blocksPurchase)
     }
 
-    func testProductIdentifiersAreUniqueAndStable() {
+    func testLifetimeUnlockIsTheOnlyAppStoreProduct() {
         XCTAssertEqual(
             Set(StoreKitConfiguration.productIDs),
-            Set([StoreKitConfiguration.trialProductID, StoreKitConfiguration.lifetimeProductID])
+            Set([StoreKitConfiguration.lifetimeProductID])
         )
-        XCTAssertFalse(StoreKitConfiguration.trialProductID.isEmpty)
         XCTAssertFalse(StoreKitConfiguration.lifetimeProductID.isEmpty)
     }
 }

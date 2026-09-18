@@ -7,7 +7,6 @@ final class PurchaseManager: ObservableObject {
     @Published private(set) var state: MonetizationState = .loading
     @Published private(set) var purchaseFlowState: PurchaseFlowState = .idle
     @Published private(set) var lifetimeProduct: Product?
-    @Published private(set) var trialProduct: Product?
     @Published private(set) var errorMessage: String?
 
     private var transactionUpdatesTask: Task<Void, Never>?
@@ -52,7 +51,7 @@ final class PurchaseManager: ObservableObject {
     }
 
     func refresh() async {
-        if lifetimeProduct == nil || trialProduct == nil {
+        if lifetimeProduct == nil {
             await loadProducts()
         }
         await refreshState()
@@ -60,39 +59,17 @@ final class PurchaseManager: ObservableObject {
 
     func startTrial() async {
         guard !purchaseFlowState.isBusy else { return }
-        guard let product = trialProduct else {
-            purchaseFlowState = .failed(String(localized: "purchase.trial_unavailable"))
+        guard case .trialNotStarted = state else {
             return
         }
 
+        // This is intentionally not a StoreKit transaction. The seven-day
+        // access period is a free, local feature; only the permanent unlock
+        // is an In-App Purchase.
         errorMessage = nil
-        purchaseFlowState = .purchasing
-        do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                guard case .verified(let transaction) = verification else {
-                    purchaseFlowState = .failed(String(localized: "purchase.trial_verification_failed"))
-                    return
-                }
-                guard transaction.productID == StoreKitConfiguration.trialProductID else {
-                    purchaseFlowState = .failed(String(localized: "purchase.trial_wrong_product"))
-                    return
-                }
-                cacheTrialStart(transaction.purchaseDate)
-                await transaction.finish()
-                await refreshState()
-                purchaseFlowState = .success
-            case .userCancelled:
-                purchaseFlowState = .cancelled
-            case .pending:
-                purchaseFlowState = .pending
-            @unknown default:
-                purchaseFlowState = .failed(String(localized: "purchase.trial_failed"))
-            }
-        } catch {
-            purchaseFlowState = .failed(Self.purchaseErrorMessage(for: error))
-        }
+        cacheTrialStart(Date())
+        await refreshState()
+        purchaseFlowState = .success
     }
 
     func purchaseLifetime() async {
@@ -156,24 +133,18 @@ final class PurchaseManager: ObservableObject {
     private func loadProducts() async {
         do {
             let products = try await Product.products(for: StoreKitConfiguration.productIDs)
-            trialProduct = products.first(where: { $0.id == StoreKitConfiguration.trialProductID })
             lifetimeProduct = products.first(where: { $0.id == StoreKitConfiguration.lifetimeProductID })
-            if trialProduct == nil || lifetimeProduct == nil {
-                storeKitProductsAvailable = false
-                errorMessage = String(localized: "purchase.products_missing")
-            } else {
-                storeKitProductsAvailable = true
-                errorMessage = nil
-            }
+            storeKitProductsAvailable = lifetimeProduct != nil
+            errorMessage = nil
         } catch {
             storeKitProductsAvailable = false
-            errorMessage = String(localized: "purchase.products_load_failed")
+            lifetimeProduct = nil
+            errorMessage = nil
         }
     }
 
     private func refreshState() async {
         var hasLifetimeEntitlement = false
-        var trialTransaction: Transaction?
 
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result,
@@ -183,8 +154,6 @@ final class PurchaseManager: ObservableObject {
             switch transaction.productID {
             case StoreKitConfiguration.lifetimeProductID:
                 hasLifetimeEntitlement = true
-            case StoreKitConfiguration.trialProductID:
-                trialTransaction = transaction
             default:
                 continue
             }
@@ -211,10 +180,7 @@ final class PurchaseManager: ObservableObject {
         }
         KeychainStore.remove(StoreKitConfiguration.cachedLifetimeKey)
 
-        if let trialTransaction {
-            cacheTrialStart(trialTransaction.purchaseDate)
-            trialStartDate = trialTransaction.purchaseDate
-        } else if let cached = cachedTrialStartDate {
+        if let cached = cachedTrialStartDate {
             trialStartDate = cached
         }
 
@@ -227,10 +193,7 @@ final class PurchaseManager: ObservableObject {
             guard case .verified(let transaction) = result,
                   transaction.appBundleID == Bundle.main.bundleIdentifier else { continue }
 
-            if transaction.productID == StoreKitConfiguration.trialProductID,
-               transaction.revocationDate == nil {
-                cacheTrialStart(transaction.purchaseDate)
-            } else if transaction.productID == StoreKitConfiguration.lifetimeProductID {
+            if transaction.productID == StoreKitConfiguration.lifetimeProductID {
                 if transaction.revocationDate == nil {
                     cacheLifetimeUnlock()
                 } else {

@@ -1,10 +1,10 @@
 import Foundation
 
 enum StoreKitConfiguration {
-    // Keep all App Store product identifiers in this file.
-    static let trialProductID = "com.APP.trial7days"
+    // The free access period is local to the device; it is not an In-App
+    // Purchase. The permanent unlock is the only App Store product.
     static let lifetimeProductID = "com.APP.lifetime"
-    static let productIDs = [trialProductID, lifetimeProductID]
+    static let productIDs = [lifetimeProductID]
 
     static let trialDuration: TimeInterval = 7 * 24 * 60 * 60
 
