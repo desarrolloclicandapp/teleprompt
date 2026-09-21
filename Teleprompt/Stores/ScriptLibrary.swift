@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class ScriptLibrary: ObservableObject {
     @Published private(set) var scripts: [Script] = []
+    @Published private(set) var storageMessage: String?
 
     private let fileURL: URL
 
@@ -42,7 +43,9 @@ final class ScriptLibrary: ObservableObject {
                 return script.sourceID == sourceID
                     || (script.sourceID == nil
                         && (script.sourcePath == sourcePath
-                            || (sourcePath == "Google Drive" && script.sourcePath == nil))
+                            || (sourcePath?.hasPrefix("Carpeta local") == true
+                                && script.sourcePath == nil
+                                && script.text == text))
                         && script.title == title)
             }
             return script.sourceID == nil
@@ -80,6 +83,16 @@ final class ScriptLibrary: ObservableObject {
         save()
     }
 
+    func resetToInitialState() {
+        scripts = [ScriptSeed.welcome]
+        storageMessage = nil
+        save()
+    }
+
+    func clearStorageMessage() {
+        storageMessage = nil
+    }
+
     func importTextFile(from url: URL) {
         guard let document = try? DocumentImporter.read(url: url) else { return }
         _ = importDocument(title: document.title, text: document.text)
@@ -93,13 +106,29 @@ final class ScriptLibrary: ObservableObject {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode([Script].self, from: data) else {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
             scripts = [ScriptSeed.welcome]
             save()
             return
         }
-        scripts = decoded
+
+        do {
+            let data = try Data(contentsOf: fileURL)
+            scripts = try JSONDecoder().decode([Script].self, from: data)
+        } catch {
+            let recoveryURL = fileURL.deletingLastPathComponent().appendingPathComponent(
+                "scripts.corrupt.\(Int(Date().timeIntervalSince1970)).json"
+            )
+            do {
+                try FileManager.default.moveItem(at: fileURL, to: recoveryURL)
+                scripts = [ScriptSeed.welcome]
+                storageMessage = String(localized: "library.recovered_corrupt")
+                save()
+            } catch {
+                scripts = []
+                storageMessage = String(localized: "library.recovery_failed")
+            }
+        }
     }
 
     private func save() {
@@ -108,7 +137,7 @@ final class ScriptLibrary: ObservableObject {
             let data = try JSONEncoder().encode(scripts)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            assertionFailure("No se pudo guardar la biblioteca: \(error)")
+            storageMessage = String(localized: "library.save_failed")
         }
     }
 }

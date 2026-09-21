@@ -3,15 +3,20 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var library: ScriptLibrary
     @EnvironmentObject private var drive: DriveSyncCoordinator
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Environment(\.openURL) private var openURL
     @StateObject private var externalFolder = ExternalFolderAccess()
     @StateObject private var google = GoogleOAuth()
     @State private var showLocalFolderPicker = false
     @State private var showDriveFolderPicker = false
     @State private var openPickerAfterConnection = false
+    @State private var showLocalDataResetConfirmation = false
+    @State private var showReviewDemoResetConfirmation = false
 
     var body: some View {
         Form {
+            MonetizationStatusSection()
+
             Section("Google Drive") {
                 Button {
                     if google.isConnected {
@@ -37,7 +42,8 @@ struct SettingsView: View {
                     }
                 } label: {
                     Label(
-                        drive.folderName.map { "Carpeta de Drive: \($0)" } ?? "Elegir carpeta de Google Drive",
+                        drive.folderName.map { String(format: String(localized: "drive.folder_label_format"), $0) }
+                            ?? String(localized: "drive.choose_folder"),
                         systemImage: "folder.badge.gearshape"
                     )
                 }
@@ -62,12 +68,30 @@ struct SettingsView: View {
             Section("Archivos del iPhone") {
                 Button { showLocalFolderPicker = true } label: {
                     Label(
-                        externalFolder.folderName.map { "Carpeta local: \($0)" } ?? "Elegir carpeta local en Archivos",
+                        externalFolder.folderName.map { String(format: String(localized: "local.folder_label_format"), $0) }
+                            ?? String(localized: "local.choose_folder"),
                         systemImage: "folder"
                     )
                 }
                 if externalFolder.folderName != nil {
                     Button("Desconectar carpeta local", role: .destructive) { externalFolder.clear() }
+
+                    Button {
+                        Task { await externalFolder.sync(library: library) }
+                    } label: {
+                        HStack {
+                            Label("Sincronizar carpeta local", systemImage: "arrow.triangle.2.circlepath")
+                            Spacer()
+                            if externalFolder.isSyncing { ProgressView() }
+                        }
+                    }
+                    .disabled(externalFolder.isSyncing)
+                }
+            }
+
+            if let message = externalFolder.message {
+                Section {
+                    Text(message).font(.caption).foregroundStyle(.secondary)
                 }
             }
 
@@ -82,11 +106,33 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Alcance del MVP") {
+            Section("Funciones incluidas") {
                 Label("TXT, Markdown, PDF y DOCX", systemImage: "doc.text")
                 Label("Descarga manual desde Drive", systemImage: "arrow.down.circle")
                 Label("Lector offline con velocidad manual", systemImage: "play.rectangle")
-                Label("Cámara y voz avanzada: opcionales", systemImage: "ellipsis.circle")
+                Label("Cámara y grabación: opcionales", systemImage: "video")
+            }
+
+            if AppReviewDemoMode.isEnabled {
+                Section {
+                    Button(String(localized: "review_demo.reset_access"), role: .destructive) {
+                        showReviewDemoResetConfirmation = true
+                    }
+                } header: {
+                    Text(String(localized: "review_demo.section_title"))
+                } footer: {
+                    Text(String(localized: "review_demo.footer"))
+                }
+            }
+
+            Section {
+                Button("Eliminar datos locales", role: .destructive) {
+                    showLocalDataResetConfirmation = true
+                }
+            } header: {
+                Text("Datos de este dispositivo")
+            } footer: {
+                Text("Elimina los guiones guardados en este iPhone y desconecta Google Drive y las carpetas vinculadas. No elimina compras de Apple, archivos de Google Drive ni vídeos de Fotos.")
             }
 
             Section("Información legal") {
@@ -119,6 +165,28 @@ struct SettingsView: View {
                 Task { await drive.sync(library: library) }
             }
         }
+        .alert("¿Eliminar los datos locales?", isPresented: $showLocalDataResetConfirmation) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Eliminar datos", role: .destructive) {
+                resetLocalData()
+            }
+        } message: {
+            Text("Esta acción elimina los guiones guardados en este iPhone y desconecta las fuentes vinculadas. No se puede deshacer.")
+        }
+        .alert(String(localized: "review_demo.confirm_title"), isPresented: $showReviewDemoResetConfirmation) {
+            Button("Cancelar", role: .cancel) {}
+            Button(String(localized: "review_demo.confirm_action"), role: .destructive) {
+                purchaseManager.resetForReviewDemo()
+            }
+        } message: {
+            Text(String(localized: "review_demo.confirm_message"))
+        }
+    }
 
+    private func resetLocalData() {
+        library.resetToInitialState()
+        drive.clearSelectedFolder()
+        externalFolder.clear()
+        google.disconnect()
     }
 }
