@@ -14,7 +14,7 @@ workflows:
         # Keep every workflow above the last App Store Connect build number.
         # BUILD_NUMBER es el contador creciente de este workflow.
         APP_STORE_BUILD_BASE: "1785260000"
-        APP_STORE_MARKETING_VERSION: "1.1.0"
+        APP_STORE_MARKETING_VERSION: "1.1.1"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.viraltia.teleprompt
@@ -96,7 +96,7 @@ workflows:
         XCODE_PROJECT: "Teleprompt.xcodeproj"
         XCODE_SCHEME: "Teleprompt"
         APP_STORE_BUILD_BASE: "1785260000"
-        APP_STORE_MARKETING_VERSION: "1.1.0"
+        APP_STORE_MARKETING_VERSION: "1.1.1"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.viraltia.teleprompt
