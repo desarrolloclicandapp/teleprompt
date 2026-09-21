@@ -3,11 +3,11 @@ import SwiftUI
 import UIKit
 
 extension TeleprompterView {
-    func advanceScroll() {
+    func advanceScroll(elapsed: TimeInterval) {
         guard countdownValue == 0 else { return }
 
         // Generic analog-controller fallback: speed always moves through the
-        // same 50 discrete levels used by the RemotePAD and the slider.
+        // same discrete levels used by the RemotePAD and the slider.
         let horizontalInput = abs(joystickInput.x) > 0.12
             ? Double(joystickInput.x)
             : 0
@@ -33,15 +33,23 @@ extension TeleprompterView {
             ? responsiveFontSize(for: panelSize.width)
             : CGFloat(fontSize)
         let fontScale = actualFontSize / referenceFontSize
-        let playbackDeltaPerFrame = isPlaying
-            ? (speed * 0.12 * Double(fontScale)) / 60.0
+        let playbackDistance = isPlaying
+            ? ReaderScrollMotion.automaticDistance(
+                speed: speed,
+                fontScale: Double(fontScale),
+                elapsed: elapsed
+            )
             : 0
-        let joystickDeltaPerFrame = (
-            verticalInput * max(minimumSpeed, speed) * 0.18 * Double(fontScale)
-        ) / 60.0
+        let joystickDistance = ReaderScrollMotion.joystickDistance(
+            input: verticalInput,
+            speed: max(minimumSpeed, speed),
+            fontScale: Double(fontScale),
+            elapsed: elapsed
+        )
 
         let requestedOffset = scrollOffset
-            + CGFloat(playbackDeltaPerFrame + joystickDeltaPerFrame)
+            + playbackDistance
+            + joystickDistance
         scrollOffset = min(maxScrollOffset, max(0, requestedOffset))
 
         // Reaching the end does not change isPlaying. If the user moves back up,

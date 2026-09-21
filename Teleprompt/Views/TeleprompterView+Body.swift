@@ -84,6 +84,8 @@ extension TeleprompterView {
                 // This does not change the user's brightness setting and iOS
                 // can still be locked manually.
                 UIApplication.shared.isIdleTimerDisabled = true
+                normalizeReaderPreferences()
+                displayLinkTicker.start()
                 updatePanelLayout(
                     for: canvas.size,
                     safeAreaInsets: canvas.safeAreaInsets,
@@ -120,6 +122,7 @@ extension TeleprompterView {
         }
         .onDisappear {
             cancelCountdown()
+            displayLinkTicker.stop()
             UIApplication.shared.isIdleTimerDisabled = false
             joystickInput = .zero
 

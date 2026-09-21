@@ -7,16 +7,17 @@ struct TeleprompterView: View {
     let script: Script
 
     @StateObject var recorder = CameraRecorder()
+    @StateObject var displayLinkTicker = DisplayLinkTicker()
     @State var joystickInput: CGPoint = .zero
     @State var lastRemoteActionKey: String?
     @State var lastRemoteActionAt = Date.distantPast
     @State var lastJoystickSpeedChangeAt = Date.distantPast
     @State var isPlaying = false
     @State var hasStartedReading = false
-    @State var speed: Double = 200
-    @State var fontSize: Double = 26
-    @State var mirrorHorizontal = false
-    @State var mirrorVertical = false
+    @AppStorage("teleprompt.reader.speed") var speed = 200.0
+    @AppStorage("teleprompt.reader.fontSize") var fontSize = 26.0
+    @AppStorage("teleprompt.reader.mirrorHorizontal") var mirrorHorizontal = false
+    @AppStorage("teleprompt.reader.mirrorVertical") var mirrorVertical = false
     @State var scrollOffset: CGFloat = 0
     @State var contentHeight: CGFloat = 0
     @State var viewportHeight: CGFloat = 0
@@ -84,5 +85,11 @@ struct TeleprompterView: View {
             .compactMap { $0 as? UIWindowScene }
             .first(where: { $0.activationState == .foregroundActive })?
             .interfaceOrientation ?? .portrait
+    }
+
+    func normalizeReaderPreferences() {
+        let savedSpeed = speed.isFinite ? speed : minimumSpeed
+        speed = speedForLevel(nearestSpeedLevel(for: savedSpeed))
+        fontSize = min(82, max(16, fontSize.isFinite ? fontSize : 26))
     }
 }

@@ -5,40 +5,40 @@ import UIKit
 extension TeleprompterView {
     var scriptReader: some View {
         GeometryReader { viewport in
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    Spacer().frame(height: max(44, viewport.size.height * 0.12))
+            VStack(spacing: 0) {
+                Spacer().frame(height: max(44, viewport.size.height * 0.12))
 
-                    Text(script.text)
-                        .font(
-                            .system(
-                                size: responsiveFontSize(for: viewport.size.width),
-                                weight: .medium,
-                                design: .rounded
-                            )
+                Text(script.text)
+                    .font(
+                        .system(
+                            size: responsiveFontSize(for: viewport.size.width),
+                            weight: .medium,
+                            design: .rounded
                         )
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(max(4, responsiveFontSize(for: viewport.size.width) * 0.18))
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, min(26, viewport.size.width * 0.08))
-                        .fixedSize(horizontal: false, vertical: true)
+                    )
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(max(4, responsiveFontSize(for: viewport.size.width) * 0.18))
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, min(26, viewport.size.width * 0.08))
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    Spacer().frame(height: max(160, viewport.size.height * 0.55))
-                }
-                .scaleEffect(x: mirrorHorizontal ? -1 : 1, y: mirrorVertical ? -1 : 1)
-                .offset(y: -scrollOffset)
-                .background(
-                    GeometryReader { content in
-                        Color.clear.preference(
-                            key: ScriptHeightPreferenceKey.self,
-                            value: content.size.height
-                        )
-                    }
-                )
+                Spacer().frame(height: max(160, viewport.size.height * 0.55))
             }
-            .scrollDisabled(true)
+            .scaleEffect(x: mirrorHorizontal ? -1 : 1, y: mirrorVertical ? -1 : 1)
+            .offset(y: -scrollOffset)
+            .background(
+                GeometryReader { content in
+                    Color.clear.preference(
+                        key: ScriptHeightPreferenceKey.self,
+                        value: content.size.height
+                    )
+                }
+            )
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(maxHeight: .infinity, alignment: .top)
             .clipped()
+            .contentShape(Rectangle())
             .simultaneousGesture(textScrollGesture)
             .onAppear {
                 viewportHeight = viewport.size.height
@@ -56,9 +56,9 @@ extension TeleprompterView {
                 showControls = true
             }
             .onReceive(
-                Timer.publish(every: 1.0 / 60.0, on: .main, in: .common).autoconnect()
-            ) { _ in
-                advanceScroll()
+                displayLinkTicker.$frame.compactMap { $0 }
+            ) { frame in
+                advanceScroll(elapsed: frame.elapsed)
             }
         }
     }
@@ -193,6 +193,18 @@ extension TeleprompterView {
                 .accessibilityLabel("Ocultar controles")
 
                 Spacer(minLength: 0)
+
+                Button {
+                    guard !recorder.isProcessing else { return }
+                    resetReader()
+                } label: {
+                    Label("Inicio", systemImage: "backward.end.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(height: 46)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Volver al inicio")
 
                 Button {
                     togglePlayback()
