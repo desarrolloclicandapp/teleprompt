@@ -124,8 +124,9 @@ final class MediaRemoteController: NSObject, ObservableObject {
             queue: .main
         ) { [weak self] notification in
             guard let controller = notification.object as? GCController else { return }
+            guard let self else { return }
             Task { @MainActor in
-                self?.bindNativeController(controller)
+                self.bindNativeController(controller)
             }
         }
 
@@ -135,8 +136,9 @@ final class MediaRemoteController: NSObject, ObservableObject {
             queue: .main
         ) { [weak self] notification in
             guard let controller = notification.object as? GCController else { return }
+            guard let self else { return }
             Task { @MainActor in
-                self?.unbindNativeController(controller)
+                self.unbindNativeController(controller)
             }
         }
     }
