@@ -13,6 +13,9 @@ final class StoreKitConfigurationTests: XCTestCase {
         )
         let session = try SKTestSession(contentsOf: configurationURL)
         defer { withExtendedLifetime(session) {} }
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
 
         let products = try await Product.products(for: StoreKitConfiguration.productIDs)
         let lifetime = try XCTUnwrap(

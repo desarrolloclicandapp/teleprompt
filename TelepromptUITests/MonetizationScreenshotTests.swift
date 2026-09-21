@@ -1,6 +1,28 @@
 import XCTest
+import StoreKitTest
 
 final class MonetizationScreenshotTests: XCTestCase {
+    private var storeKitSession: SKTestSession?
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+
+        let bundle = Bundle(for: Self.self)
+        let configurationURL = try XCTUnwrap(
+            bundle.url(forResource: "Teleprompt", withExtension: "storekit")
+        )
+        let session = try SKTestSession(contentsOf: configurationURL)
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        storeKitSession = session
+    }
+
+    override func tearDown() {
+        storeKitSession = nil
+        super.tearDown()
+    }
+
     func testCaptureInitialPurchaseScreen() {
         let app = XCUIApplication()
         app.launchArguments = ["-teleprompt.resetLocalMonetization"]
