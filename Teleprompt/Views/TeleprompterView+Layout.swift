@@ -68,12 +68,6 @@ extension TeleprompterView {
             : canvas.width
         let minimumHeight: CGFloat = isLandscape ? 180 : 220
 
-        if isLandscape {
-            let maximumSide = max(180, min(horizontalLimit - 24, canvas.height - 24))
-            let side = min(maximumSide, max(180, min(size.width, size.height)))
-            return CGSize(width: side, height: side)
-        }
-
         return CGSize(
             width: min(max(180, horizontalLimit - 24), max(180, size.width)),
             height: min(

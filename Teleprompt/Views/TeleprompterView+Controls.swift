@@ -318,30 +318,6 @@ extension TeleprompterView {
                 let minimumHeight: CGFloat = isLandscape ? 180 : 220
                 let maximumHeight = max(minimumHeight, canvasSize.height - 24)
 
-                if isLandscape {
-                    let requestedSide: CGFloat
-                    if resizeWidth && resizeHeight {
-                        requestedSide = start.width + max(
-                            value.translation.width,
-                            value.translation.height
-                        )
-                    } else if resizeWidth {
-                        requestedSide = start.width + value.translation.width
-                    } else {
-                        requestedSide = start.height + value.translation.height
-                    }
-
-                    let maximumSide = max(180, min(maximumWidth, maximumHeight))
-                    let side = min(maximumSide, max(180, requestedSide))
-                    panelSize = CGSize(width: side, height: side)
-                    panelCenter = boundedPanelCenter(
-                        panelCenter,
-                        panelSize: panelSize,
-                        canvasSize: canvasSize
-                    )
-                    return
-                }
-
                 let requestedWidth = resizeWidth
                     ? start.width + value.translation.width
                     : start.width
