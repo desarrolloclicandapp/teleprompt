@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Teleprompt uses the front camera to record you while you read.";
+"NSMicrophoneUsageDescription" = "Teleprompt uses the microphone to record your videos.";
+"NSPhotoLibraryAddUsageDescription" = "Teleprompt saves your recordings to Photos.";
+"NSBluetoothAlwaysUsageDescription" = "Teleprompt uses Bluetooth to detect and use connected controllers.";
+"NSBluetoothPeripheralUsageDescription" = "Teleprompt uses Bluetooth to detect and use connected controllers.";

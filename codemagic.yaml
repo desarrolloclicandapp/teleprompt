@@ -11,9 +11,10 @@ workflows:
       vars:
         XCODE_PROJECT: "Teleprompt.xcodeproj"
         XCODE_SCHEME: "Teleprompt"
-        # Último build publicado en App Store Connect: 1785247605.
+        # Keep every workflow above the last App Store Connect build number.
         # BUILD_NUMBER es el contador creciente de este workflow.
-        APP_STORE_BUILD_BASE: "1785247605"
+        APP_STORE_BUILD_BASE: "1785260000"
+        APP_STORE_MARKETING_VERSION: "1.1.1"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.viraltia.teleprompt
@@ -22,6 +23,36 @@ workflows:
         script: brew install xcodegen
       - name: Generate Xcode project
         script: xcodegen generate
+      - name: Resolve Swift packages
+        script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: Run tests and capture initial purchase screen
+        script: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for device in devices:
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          raise SystemExit("No available iPhone simulator found")
+          ')
+          xcrun simctl boot "$UDID" || true
+          RESULT_BUNDLE="$CM_BUILD_DIR/build/teleprompt-tests.xcresult"
+          ATTACHMENTS_DIRECTORY="$CM_BUILD_DIR/build/test-attachments"
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "id=$UDID" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+          mkdir -p "$ATTACHMENTS_DIRECTORY"
+          xcrun xcresulttool export attachments \
+            --path "$RESULT_BUNDLE" \
+            --output-path "$ATTACHMENTS_DIRECTORY"
       - name: Set ordered App Store build number and encryption declaration
         script: |
           BUILD_COUNTER="${BUILD_NUMBER:-1}"
@@ -29,15 +60,19 @@ workflows:
             ''|*[!0-9]*) echo "Invalid Codemagic BUILD_NUMBER: $BUILD_COUNTER"; exit 1 ;;
           esac
           APP_STORE_BUILD_NUMBER=$((APP_STORE_BUILD_BASE + BUILD_COUNTER))
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_STORE_MARKETING_VERSION" Teleprompt/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_STORE_BUILD_NUMBER" Teleprompt/Info.plist
           /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" Teleprompt/Info.plist
-          echo "Using App Store build number: $APP_STORE_BUILD_NUMBER"
+          /usr/libexec/PlistBuddy -c "Delete :TelepromptReviewDemoMode" Teleprompt/Info.plist 2>/dev/null || true
+          echo "Using App Store version: $APP_STORE_MARKETING_VERSION ($APP_STORE_BUILD_NUMBER)"
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Build and archive
         script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/test-attachments/**/*.png
+      - build/teleprompt-tests.xcresult
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
@@ -46,6 +81,87 @@ workflows:
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         # Upload only. Internal testers can be assigned from App Store Connect
         # without submitting the build to external beta review.
+        submit_to_testflight: false
+
+  ios-review-demo:
+    name: Teleprompt review demo only
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - appstore_credentials
+      xcode: latest
+      cocoapods: default
+      vars:
+        XCODE_PROJECT: "Teleprompt.xcodeproj"
+        XCODE_SCHEME: "Teleprompt"
+        APP_STORE_BUILD_BASE: "1785260000"
+        APP_STORE_MARKETING_VERSION: "1.1.1"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.viraltia.teleprompt
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate Xcode project
+        script: xcodegen generate
+      - name: Resolve Swift packages
+        script: xcodebuild -resolvePackageDependencies -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME"
+      - name: Run tests and capture initial purchase screen
+        script: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for device in devices:
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone"):
+                      print(device["udid"])
+                      raise SystemExit(0)
+          raise SystemExit("No available iPhone simulator found")
+          ')
+          xcrun simctl boot "$UDID" || true
+          RESULT_BUNDLE="$CM_BUILD_DIR/build/teleprompt-tests.xcresult"
+          ATTACHMENTS_DIRECTORY="$CM_BUILD_DIR/build/test-attachments"
+          xcodebuild test \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -destination "id=$UDID" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+          mkdir -p "$ATTACHMENTS_DIRECTORY"
+          xcrun xcresulttool export attachments \
+            --path "$RESULT_BUNDLE" \
+            --output-path "$ATTACHMENTS_DIRECTORY"
+      - name: Set review-demo build number and encryption declaration
+        script: |
+          BUILD_COUNTER="${BUILD_NUMBER:-1}"
+          case "$BUILD_COUNTER" in
+            ''|*[!0-9]*) echo "Invalid Codemagic BUILD_NUMBER: $BUILD_COUNTER"; exit 1 ;;
+          esac
+          APP_STORE_BUILD_NUMBER=$((APP_STORE_BUILD_BASE + BUILD_COUNTER))
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_STORE_MARKETING_VERSION" Teleprompt/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_STORE_BUILD_NUMBER" Teleprompt/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" Teleprompt/Info.plist
+          /usr/libexec/PlistBuddy -c "Delete :TelepromptReviewDemoMode" Teleprompt/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :TelepromptReviewDemoMode bool true" Teleprompt/Info.plist
+          echo "Using review-demo version: $APP_STORE_MARKETING_VERSION ($APP_STORE_BUILD_NUMBER)"
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build and archive
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/test-attachments/**/*.png
+      - build/teleprompt-tests.xcresult
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: false
 
   ios-validation:

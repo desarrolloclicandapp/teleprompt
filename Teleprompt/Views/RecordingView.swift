@@ -32,6 +32,10 @@ struct RecordingView: View {
             .foregroundStyle(.white)
         }
         .task { await recorder.prepare() }
+        .onDisappear {
+            Task {
+                await recorder.shutdownSessionAndWait()
+            }
+        }
     }
 }
-

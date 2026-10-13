@@ -8,9 +8,9 @@ enum DocumentImporter {
         .plainText,
         .text,
         .pdf,
-        UTType(filenameExtension: "md")!,
-        UTType(filenameExtension: "docx")!
-    ]
+        UTType(filenameExtension: "md"),
+        UTType(filenameExtension: "docx")
+    ].compactMap { $0 }
 
     static func read(url: URL) throws -> (title: String, text: String) {
         guard url.startAccessingSecurityScopedResource() else { throw ImportError.accessDenied }
@@ -103,9 +103,9 @@ enum ImportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .accessDenied: return "No se pudo acceder al archivo seleccionado."
-        case .emptyDocument: return "El documento no contiene texto legible."
-        case .unreadableDocument: return "No se pudo leer este documento."
+        case .accessDenied: return String(localized: "import.error.access_denied")
+        case .emptyDocument: return String(localized: "import.error.empty_document")
+        case .unreadableDocument: return String(localized: "import.error.unreadable_document")
         }
     }
 }

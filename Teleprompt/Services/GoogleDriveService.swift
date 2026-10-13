@@ -158,11 +158,13 @@ actor GoogleDriveService {
     func refreshAccessToken(refreshToken: String, clientID: String) async throws -> String {
         var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        let body = ["client_id": clientID, "refresh_token": refreshToken, "grant_type": "refresh_token"]
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0.value)" }
-            .joined(separator: "&")
-        request.httpBody = body.data(using: .utf8)
+        request.httpBody = URLFormEncoder.encode([
+            "client_id": clientID,
+            "refresh_token": refreshToken,
+            "grant_type": "refresh_token"
+        ])
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         let token = try JSONDecoder().decode(RefreshResponse.self, from: data)
@@ -177,6 +179,7 @@ actor GoogleDriveService {
 
     private func authorizedRequest(_ url: URL, accessToken: String) -> URLRequest {
         var request = URLRequest(url: url)
+        request.timeoutInterval = 30
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         return request
     }
@@ -207,13 +210,13 @@ enum DriveError: LocalizedError {
     case uploadDisabled
     var errorDescription: String? {
         switch self {
-        case .notConnected: return "Conecta Google Drive para elegir una carpeta."
-        case .http(401): return "La sesión de Google Drive expiró. Vuelve a conectar la cuenta."
-        case .http(403): return "Google Drive denegó el acceso (403). Verifica que tu cuenta esté en OAuth consent screen > Test users y vuelve a conectar."
-        case .http(404): return "No se encontró la carpeta de Google Drive. Elige una carpeta nuevamente desde el selector."
-        case .http(let code): return "Google Drive respondió con el código \(code)."
-        case .invalidText: return "El archivo no contiene texto UTF-8 válido."
-        case .uploadDisabled: return "Google Drive esta en modo solo lectura. Esta app solo descarga scripts y no sube ni modifica archivos."
+        case .notConnected: return String(localized: "drive.error.not_connected")
+        case .http(401): return String(localized: "drive.error.unauthorized")
+        case .http(403): return String(localized: "drive.error.forbidden")
+        case .http(404): return String(localized: "drive.error.not_found")
+        case .http(let code): return String(format: String(localized: "drive.error.http_format"), code)
+        case .invalidText: return String(localized: "drive.error.invalid_text")
+        case .uploadDisabled: return String(localized: "drive.error.upload_disabled")
         }
     }
 }

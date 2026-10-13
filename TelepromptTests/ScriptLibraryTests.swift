@@ -13,5 +13,14 @@ final class ScriptLibraryTests: XCTestCase {
         XCTAssertEqual(library.scripts.first(where: { $0.id == script.id })?.text, "Hola mundo")
         library.delete(edited)
     }
-}
 
+    @MainActor
+    func testResetRestoresTheInitialLibrary() {
+        let library = ScriptLibrary()
+        _ = library.add(title: "Datos privados", text: "Contenido que debe eliminarse")
+
+        library.resetToInitialState()
+
+        XCTAssertEqual(library.scripts, [ScriptSeed.welcome])
+    }
+}

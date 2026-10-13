@@ -1,0 +1,18 @@
+{
+  "products" : [
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "lifetime",
+      "locale" : "en_US",
+      "productID" : "com.APP.lifetime",
+      "referenceName" : "Lifetime Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "appStoreCountry" : "USA",
+    "storeKitErrors" : []
+  },
+  "version" : 3
+}
