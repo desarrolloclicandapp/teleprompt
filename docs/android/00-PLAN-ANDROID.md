@@ -2,7 +2,7 @@
 
 Fecha de preparación: 13 de octubre de 2026. Referencia de código: commit `548a1d6`, versión iOS configurada `1.1.1`.
 
-Estado: documentación de implementación; no existe todavía un proyecto Android en este repositorio. Las rutas Android que aparecen en estos documentos son propuestas, no archivos implementados. Este trabajo crea exclusivamente archivos `.md`.
+Estado original del 13 de octubre: entrega exclusivamente documental. El 21 de octubre comenzó la implementación nativa en `android/`; consultar [estado de implementación](07-ESTADO-DE-IMPLEMENTACION.md) para distinguir funciones implementadas y pendientes. Las rutas de los documentos de arquitectura/inventario siguen describiendo el diseño propuesto y pueden diferir de los nombres de esta primera base.
 
 ## Objetivo y límites
 

@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Teleprompt" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#00D3BC</item>
+        <item name="android:windowBackground">#080B0F</item>
+    </style>
+</resources>

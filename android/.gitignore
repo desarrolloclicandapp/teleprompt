@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.jks
+*.keystore
+keystore.properties
+service-account*.json
+captures/
+.test-avd/
+hs_err_pid*.log
+replay_pid*.log
